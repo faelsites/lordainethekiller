@@ -1,0 +1,3478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>LORDAINE: A MANSÃO ESQUECIDA</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      background: #040101;
+      color: #f4eaea;
+      font-family: 'Courier New', Courier, monospace;
+      touch-action: none;
+    }
+
+    canvas#webgl-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw !important;
+      height: 100dvh !important;
+      z-index: 1;
+      display: block;
+    }
+
+    canvas#vfx-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      z-index: 4;
+      pointer-events: none !important;
+    }
+
+    #vignette, #blood-overlay, #scare-flash, #eyelid-top, #eyelid-bottom,
+    #wake-caption, #wardrobe-overlay, #interact-prompt, #trap-prompt,
+    #toast-msg, #crosshair, #noise-alert, #key-banner {
+      pointer-events: none !important;
+    }
+
+    #vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.92) 100%);
+    }
+
+    #blood-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      opacity: 0;
+      transition: opacity 0.14s ease;
+      background: radial-gradient(circle at center, rgba(160, 0, 0, 0.25) 18%, rgba(220, 0, 0, 0.96) 100%);
+    }
+
+    #scare-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 95;
+      display: none;
+      animation: strobe 0.065s infinite;
+    }
+
+    @keyframes strobe {
+      0% { background: rgba(220, 0, 0, 0.36); }
+      50% { background: rgba(0, 0, 0, 0.58); }
+      100% { background: rgba(255, 35, 35, 0.28); }
+    }
+
+    #eyelid-top, #eyelid-bottom {
+      position: fixed;
+      left: 0;
+      width: 100vw;
+      height: 52dvh;
+      background: #020101;
+      z-index: 85;
+      display: none;
+      box-shadow: 0 0 36px 22px #020101;
+    }
+    #eyelid-top { top: 0; }
+    #eyelid-bottom { bottom: 0; }
+
+    #wake-caption {
+      position: fixed;
+      bottom: 18dvh;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 88;
+      color: #f3e4e4;
+      font-size: clamp(13px, 2.8vw, 18px);
+      letter-spacing: 2px;
+      text-shadow: 0 0 12px #000;
+      display: none;
+      text-align: center;
+      width: 92vw;
+    }
+
+    #wardrobe-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      display: none;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(6, 2, 2, 0.97) 0px,
+        rgba(6, 2, 2, 0.97) 34px,
+        rgba(0, 0, 0, 0.12) 34px,
+        rgba(0, 0, 0, 0.12) 50px
+      );
+    }
+
+    body.sanity-distort canvas#webgl-canvas {
+      filter: contrast(1.36) saturate(0.45) hue-rotate(-14deg);
+    }
+
+    button {
+      appearance: none;
+      -webkit-appearance: none;
+      background: #180404;
+      color: #fff0f0;
+      border: 2px solid #991b1b;
+      border-radius: 10px;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.1s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    button:hover {
+      background: #330808;
+      border-color: #ef4444;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
+    }
+    button:active {
+      transform: scale(0.95);
+      background: #520c0c;
+    }
+
+    /* =========================================================================
+       YOUTUBE THUMBNAIL 16:9 SPLIT-SCREEN START MENU
+       ========================================================================= */
+    .screen-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      z-index: 520;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: radial-gradient(circle at center, rgba(20, 4, 4, 0.85) 0%, rgba(4, 1, 1, 0.97) 100%);
+    }
+
+    .screen-overlay.hidden {
+      display: none !important;
+      pointer-events: none !important;
+    }
+
+    #start-screen {
+      justify-content: flex-end;
+      padding: clamp(14px, 3.5vw, 48px);
+      background: linear-gradient(
+        90deg,
+        rgba(0, 0, 0, 0.04) 0%,
+        rgba(0, 0, 0, 0.22) 45%,
+        rgba(6, 1, 1, 0.92) 66%,
+        rgba(4, 1, 1, 0.98) 100%
+      );
+    }
+
+    .thumb-panel {
+      position: relative;
+      z-index: 550;
+      pointer-events: auto;
+      width: min(490px, 55vw);
+      background: linear-gradient(165deg, rgba(16, 4, 4, 0.95) 0%, rgba(7, 2, 2, 0.98) 100%);
+      border: 2px solid #b91c1c;
+      border-radius: 16px;
+      padding: clamp(16px, 2.8vw, 28px);
+      box-shadow: -14px 0 48px rgba(0, 0, 0, 0.96), 0 0 34px rgba(220, 38, 38, 0.45);
+      text-align: left;
+    }
+
+    .modal-box {
+      position: relative;
+      z-index: 550;
+      pointer-events: auto;
+      width: min(460px, 92vw);
+      background: #0a0303;
+      border: 2px solid #991b1b;
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.98), 0 0 30px rgba(185, 28, 28, 0.5);
+    }
+
+    .badge-tag {
+      display: inline-block;
+      padding: 4px 12px;
+      margin-bottom: 10px;
+      background: #280606;
+      border: 1px solid #dc2626;
+      border-radius: 999px;
+      color: #fca5a5;
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .title-main {
+      font-size: clamp(26px, 4.2vw, 44px);
+      font-weight: 900;
+      letter-spacing: 3px;
+      line-height: 1.06;
+      color: #ffffff;
+      text-shadow: 0 0 24px rgba(239, 68, 68, 0.95), 3px 3px 0 #450a0a;
+    }
+
+    .title-sub {
+      font-size: clamp(11px, 1.7vw, 14px);
+      letter-spacing: 3px;
+      color: #ef4444;
+      text-transform: uppercase;
+      margin: 6px 0 12px;
+      font-weight: bold;
+    }
+
+    .desc-text {
+      font-size: clamp(11px, 1.45vw, 13px);
+      line-height: 1.55;
+      color: #ded0d0;
+      margin-bottom: 16px;
+    }
+    .desc-text strong { color: #f87171; }
+
+    .menu-btn-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .play-cta-btn {
+      position: relative;
+      z-index: 600;
+      pointer-events: auto;
+      flex: 1;
+      padding: clamp(13px, 2.2vh, 17px) 16px;
+      font-size: clamp(13px, 1.85vw, 16px);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #b91c1c 0%, #450a0a 100%);
+      border: 2px solid #fca5a5;
+      color: #ffffff;
+      box-shadow: 0 0 28px rgba(220, 38, 38, 0.75);
+    }
+
+    .skip-direct-btn {
+      position: relative;
+      z-index: 600;
+      pointer-events: auto;
+      padding: clamp(13px, 2.2vh, 17px) 14px;
+      font-size: clamp(11px, 1.4vw, 13px);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: #140505;
+      border: 2px solid #991b1b;
+      color: #fca5a5;
+      white-space: nowrap;
+    }
+
+    .controls-hint {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: #060202;
+      border: 1px solid #520c0c;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: #c7b8b8;
+    }
+    .controls-hint b { color: #f87171; display: block; margin-bottom: 2px; }
+
+    @media (orientation: portrait) and (max-width: 720px) {
+      #start-screen {
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 14px;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.04) 0%,
+          rgba(0, 0, 0, 0.25) 42%,
+          rgba(6, 1, 1, 0.94) 60%,
+          rgba(4, 1, 1, 0.99) 100%
+        );
+      }
+      .thumb-panel { width: 100%; padding: 16px; }
+      .controls-hint { display: none; }
+    }
+
+    @media (orientation: landscape) and (max-height: 460px) {
+      #start-screen { padding: 10px 20px; }
+      .thumb-panel { width: min(440px, 56vw); padding: 12px 16px; }
+      .desc-text { display: none; }
+      .menu-btn-row { margin-bottom: 8px; }
+      .play-cta-btn, .skip-direct-btn { padding: 10px 12px; font-size: 12px; }
+      .controls-hint { padding: 7px; font-size: 9.5px; }
+    }
+
+    /* =========================================================================
+       ANIMATED 2D CANVAS STORY CUTSCENE
+       ========================================================================= */
+    #story-screen {
+      padding: 0;
+      background: #040101;
+      z-index: 560;
+    }
+
+    canvas#story-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      display: block;
+    }
+
+    #story-ui {
+      position: fixed;
+      inset: 0;
+      z-index: 570;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(14px, 3vw, 28px);
+    }
+
+    .story-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    #story-chapter {
+      background: rgba(12, 3, 3, 0.9);
+      border: 1px solid #991b1b;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #fca5a5;
+    }
+
+    #skip-story-btn {
+      padding: 9px 16px;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      background: rgba(30, 6, 6, 0.94);
+      border: 2px solid #ef4444;
+      z-index: 600;
+    }
+
+    #story-subtitle-box {
+      align-self: center;
+      width: min(760px, 92vw);
+      background: rgba(8, 2, 2, 0.92);
+      border: 1.5px solid #991b1b;
+      border-radius: 12px;
+      padding: clamp(12px, 2vw, 18px) clamp(16px, 3vw, 26px);
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.95);
+    }
+
+    #story-subtitle {
+      font-size: clamp(12.5px, 2vw, 16px);
+      line-height: 1.55;
+      color: #f8ecec;
+    }
+
+    #story-progress {
+      margin-top: 10px;
+      width: 100%;
+      height: 4px;
+      background: #240707;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #story-progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #ef4444;
+    }
+
+    /* =========================================================================
+       HUD & RESPONSIVE MOBILE CONTROLS
+       ========================================================================= */
+    #hud {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      pointer-events: none;
+      display: none;
+    }
+
+    #hud-top {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .hud-box {
+      background: rgba(10, 3, 3, 0.88);
+      border: 1px solid #991b1b;
+      border-radius: 10px;
+      padding: 8px 11px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 5px;
+      font-size: 10.5px;
+    }
+    .stat-row:last-child { margin-bottom: 0; }
+    .stat-lbl { width: 60px; font-weight: bold; color: #e2d4d4; }
+    .bar-bg {
+      width: clamp(68px, 11vw, 106px);
+      height: 7px;
+      background: #1f0909;
+      border: 1px solid #6b1111;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .bar-val { height: 100%; width: 100%; transition: width 0.1s linear; }
+    #bar-stamina { background: #eab308; }
+    #bar-sanity { background: #38bdf8; }
+    #bar-battery { background: #22c55e; }
+
+    #hud-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+      pointer-events: auto;
+    }
+
+    #room-badge {
+      background: rgba(28, 6, 6, 0.92);
+      border: 1px solid #991b1b;
+      border-radius: 8px;
+      padding: 4px 9px;
+      font-size: 10.5px;
+      color: #fca5a5;
+      font-weight: bold;
+    }
+
+    #keys-badge {
+      background: rgba(10, 3, 3, 0.9);
+      border: 1px solid #991b1b;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 11.5px;
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    /* Strictly hidden until keysCollected >= 5 */
+    #basement-door-tracker {
+      display: none;
+      background: rgba(20, 8, 2, 0.95);
+      border: 1.5px solid #fbbf24;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #fef08a;
+      font-weight: bold;
+      text-align: right;
+      box-shadow: 0 0 16px rgba(251, 191, 36, 0.45);
+    }
+
+    .hud-btns { display: flex; gap: 5px; }
+    .mini-btn {
+      padding: 6px 9px;
+      font-size: 10px;
+      border-radius: 8px;
+      background: #180505;
+      border: 1px solid #b91c1c;
+    }
+
+    #noise-alert {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(153, 27, 27, 0.96);
+      border: 2px solid #fca5a5;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 11.5px;
+      font-weight: bold;
+      color: #fff;
+      display: none;
+      text-align: center;
+      max-width: 88vw;
+      z-index: 45;
+    }
+
+    #key-banner {
+      position: fixed;
+      top: 56px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, rgba(127, 29, 29, 0.97), rgba(45, 6, 6, 0.97));
+      border: 2px solid #fbbf24;
+      border-radius: 10px;
+      padding: 9px 18px;
+      font-size: clamp(11.5px, 2vw, 14px);
+      font-weight: bold;
+      color: #fef08a;
+      text-align: center;
+      display: none;
+      max-width: 90vw;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.8);
+      z-index: 46;
+    }
+
+    @media (orientation: portrait) and (max-width: 720px) {
+      #noise-alert { top: 118px; }
+      #key-banner { top: 158px; }
+    }
+
+    #crosshair {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      margin: -3px 0 0 -3px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 0 6px #000;
+    }
+
+    #interact-prompt {
+      position: fixed;
+      top: 56%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10, 3, 3, 0.94);
+      border: 1px solid #ef4444;
+      border-radius: 8px;
+      padding: 7px 14px;
+      font-size: 12px;
+      color: #fef08a;
+      display: none;
+      white-space: nowrap;
+    }
+
+    #trap-prompt {
+      position: fixed;
+      top: 38%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(153, 27, 27, 0.97);
+      border: 2px solid #fca5a5;
+      border-radius: 10px;
+      padding: 11px 18px;
+      font-size: 13px;
+      font-weight: bold;
+      color: #fff;
+      display: none;
+      text-align: center;
+      box-shadow: 0 0 25px rgba(220, 38, 38, 0.9);
+      z-index: 48;
+    }
+
+    #toast-msg {
+      position: fixed;
+      bottom: 155px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(12, 3, 3, 0.96);
+      border: 1px solid #b91c1c;
+      border-radius: 10px;
+      padding: 9px 16px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #fca5a5;
+      display: none;
+      text-align: center;
+      max-width: 90vw;
+      z-index: 44;
+    }
+
+    #mobile-controls {
+      position: fixed;
+      inset: 0;
+      z-index: 35;
+      display: none;
+      pointer-events: none;
+    }
+
+    #look-zone {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 55vw;
+      height: 100dvh;
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    #joystick-zone {
+      position: fixed;
+      bottom: clamp(14px, 3dvh, 26px);
+      left: clamp(14px, 3vw, 26px);
+      width: clamp(106px, 16vmin, 134px);
+      height: clamp(106px, 16vmin, 134px);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(24, 8, 8, 0.6) 0%, rgba(153, 27, 27, 0.3) 100%);
+      border: 2px solid rgba(220, 38, 38, 0.85);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.9);
+      pointer-events: auto;
+      touch-action: none;
+    }
+
+    #joystick-stick {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 42%;
+      height: 42%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ef4444, #450a0a);
+      border: 2px solid #fca5a5;
+      pointer-events: none;
+    }
+
+    #touch-actions {
+      position: fixed;
+      bottom: clamp(14px, 3dvh, 26px);
+      right: clamp(14px, 3vw, 22px);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+    }
+
+    .touch-row { display: flex; gap: 8px; justify-content: flex-end; }
+
+    .touch-btn {
+      width: clamp(54px, 9vmin, 64px);
+      height: clamp(54px, 9vmin, 64px);
+      border-radius: 50%;
+      background: rgba(14, 4, 4, 0.92);
+      border: 2px solid #991b1b;
+      color: #fff0f0;
+      font-size: 9.5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.2;
+      touch-action: none;
+    }
+    .touch-btn.active { background: #7f1d1d; border-color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <canvas id="vfx-canvas"></canvas>
+  <div id="vignette"></div>
+  <div id="blood-overlay"></div>
+  <div id="scare-flash"></div>
+  <div id="wardrobe-overlay"></div>
+
+  <div id="eyelid-top"></div>
+  <div id="eyelid-bottom"></div>
+  <div id="wake-caption">ENTREI PELA JANELA... PRECISO ENCONTRAR AS 5 CHAVES E SALVAR O JASON NO PORÃO!</div>
+
+  <!-- In-Game HUD -->
+  <div id="hud">
+    <div id="hud-top">
+      <div class="hud-box">
+        <div class="stat-row">
+          <span class="stat-lbl">STAMINA</span>
+          <div class="bar-bg"><div id="bar-stamina" class="bar-val"></div></div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">SANIDADE</span>
+          <div class="bar-bg"><div id="bar-sanity" class="bar-val"></div></div>
+        </div>
+        <div class="stat-row">
+          <span class="stat-lbl">LANTERNA</span>
+          <div class="bar-bg"><div id="bar-battery" class="bar-val"></div></div>
+          <span id="spare-bat-txt" style="color:#4ade80;font-size:10px;">+1</span>
+        </div>
+      </div>
+
+      <div id="noise-alert">! BARULHO DETECTADO — LORDAINE OUVIU !</div>
+      <div id="key-banner">CHAVE ENCONTRADA (1/5) — LORDAINE ESTÁ MAIS RÁPIDA!</div>
+
+      <div id="hud-right">
+        <div id="room-badge">QUARTO DO HÓSPEDE</div>
+        <div id="keys-badge">CHAVES: <span id="keys-count">0</span> / 5</div>
+        <div id="basement-door-tracker">PORTA DO PORÃO: <span id="basement-dir">--</span> (<span id="basement-dist">--</span>m)</div>
+        <div class="hud-btns">
+          <button id="fullscreen-btn" type="button" class="mini-btn">DEITAR TELA</button>
+          <button id="toggle-touch-btn" type="button" class="mini-btn">TOUCH: OFF</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="trap-prompt">ARMADILHA DE URSO!<br>APERTE [USAR / E] <span id="trap-left">4</span> VEZES PARA SOLTAR!</div>
+    <div id="interact-prompt">[E] INTERAGIR</div>
+    <div id="toast-msg"></div>
+  </div>
+
+  <!-- Mobile Analog & Touch Controls -->
+  <div id="mobile-controls">
+    <div id="look-zone"></div>
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+    <div id="touch-actions">
+      <div class="touch-row">
+        <button id="btn-touch-battery" type="button" class="touch-btn">PILHA<br>[R]</button>
+        <button id="btn-touch-light" type="button" class="touch-btn">LUZ<br>[F]</button>
+      </div>
+      <div class="touch-row">
+        <button id="btn-touch-use" type="button" class="touch-btn">USAR<br>[E]</button>
+        <button id="btn-touch-sprint" type="button" class="touch-btn">CORRER<br>[SHIFT]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. YOUTUBE THUMBNAIL 16:9 SPLIT-SCREEN START MENU -->
+  <div id="start-screen" class="screen-overlay">
+    <div class="thumb-panel">
+      <div class="badge-tag">Terror 3D • História Ilustrada • Use Fones</div>
+      <h1 class="title-main">LORDAINE: A MANSÃO ESQUECIDA</h1>
+      <div class="title-sub">Salve Jason do Porão</div>
+      <p class="desc-text">
+        Você é o estagiário da mansão. No fim do seu turno, ouviu gritos e viu pela janela <strong>Lordaine</strong> perder o controle e trancar seu marido <strong>Jason</strong> no porão. Encontre as <strong>5 chaves</strong> e salve-o!
+      </p>
+      <div class="menu-btn-row">
+        <button id="start-btn" type="button" class="play-cta-btn">CLIQUE PARA JOGAR</button>
+        <button id="direct-play-btn" type="button" class="skip-direct-btn">PULAR HISTÓRIA</button>
+      </div>
+      <div class="controls-hint">
+        <div>
+          <b>PC (TECLADO/MOUSE):</b>
+          • WASD: Andar | Shift: Correr<br>
+          • Mouse: Olhar | E: Interagir<br>
+          • F: Lanterna | R: Pilha
+        </div>
+        <div>
+          <b>CELULAR (EM PÉ / DEITADO):</b>
+          • Esq: Analógico Virtual<br>
+          • Dir: Arrastar Câmera<br>
+          • Botões: Correr, Usar, Luz, Pilha
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. ANIMATED 2D CANVAS STORY CUTSCENE -->
+  <div id="story-screen" class="screen-overlay hidden">
+    <canvas id="story-canvas"></canvas>
+    <div id="story-ui">
+      <div class="story-top">
+        <div id="story-chapter">ATO I — O PASSADO</div>
+        <button id="skip-story-btn" type="button">PULAR HISTÓRIA &gt;&gt;</button>
+      </div>
+      <div id="story-subtitle-box">
+        <div id="story-subtitle"></div>
+        <div id="story-progress"><div id="story-progress-bar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. DEATH SCREEN -->
+  <div id="death-screen" class="screen-overlay hidden">
+    <div class="modal-box">
+      <div class="badge-tag">Você Foi Capturado</div>
+      <h2 class="title-main" style="color: #ef4444; font-size: clamp(28px, 5vw, 44px);">VOCÊ MORREU</h2>
+      <div style="font-size: 13px; color: #fca5a5; letter-spacing: 3px; font-weight: bold; margin-top: 6px;">LORDAINE TE PEGOU</div>
+      <p id="death-reason" class="desc-text" style="margin-top: 12px;">
+        Lordaine encontrou você nas sombras antes que pudesse libertar Jason.
+      </p>
+      <button id="retry-btn" type="button" class="play-cta-btn">TENTAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <!-- 4. VICTORY SCREEN -->
+  <div id="win-screen" class="screen-overlay hidden">
+    <div class="modal-box">
+      <div class="badge-tag" style="color: #4ade80; border-color: #16a34a;">Jason Salvo!</div>
+      <h2 class="title-main" style="font-size: clamp(28px, 5vw, 42px);">VOCÊ ESCAPOU</h2>
+      <p class="desc-text" style="margin-top: 10px;">
+        Você abriu a porta do porão, apoiou Jason ferido e fugiu com ele antes que Lordaine alcançasse vocês!
+      </p>
+      <p id="win-stats" style="font-size: 12px; color: #fbbf24; margin-bottom: 16px;"></p>
+      <button id="win-retry-btn" type="button" class="play-cta-btn">JOGAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // =========================================================================
+      // PROCEDURAL WEB AUDIO ENGINE
+      // =========================================================================
+      class HorrorSoundEngine {
+        constructor() {
+          this.ctx = null;
+          this.master = null;
+          this.droneGain = null;
+          this.ready = false;
+        }
+
+        init() {
+          try {
+            if (this.ready) {
+              if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+              return;
+            }
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            this.ctx = new AudioCtx();
+            if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+
+            this.master = this.ctx.createGain();
+            this.master.gain.value = 0.92;
+            this.master.connect(this.ctx.destination);
+
+            this.droneGain = this.ctx.createGain();
+            this.droneGain.gain.value = 0.12;
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 135;
+            this.droneGain.connect(filter);
+            filter.connect(this.master);
+
+            [36.0, 39.2].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              osc.type = idx === 0 ? 'sawtooth' : 'triangle';
+              osc.frequency.value = freq;
+              osc.connect(this.droneGain);
+              osc.start();
+            });
+            this.ready = true;
+          } catch (e) {}
+        }
+
+        setTension(level) {
+          if (!this.ready || !this.droneGain) return;
+          try {
+            this.droneGain.gain.setTargetAtTime(0.11 + Math.min(1, Math.max(0, level)) * 0.42, this.ctx.currentTime, 0.12);
+          } catch (e) {}
+        }
+
+        playFootstep(running, creak) {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = creak ? 'sawtooth' : 'triangle';
+            osc.frequency.setValueAtTime(creak ? 215 : (running ? 115 : 76), now);
+            osc.frequency.exponentialRampToValueAtTime(creak ? 68 : 26, now + (creak ? 0.22 : 0.09));
+            gain.gain.setValueAtTime(creak ? 0.22 : (running ? 0.24 : 0.1), now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + (creak ? 0.24 : 0.1));
+            osc.connect(gain);
+            gain.connect(this.master);
+            osc.start(now);
+            osc.stop(now + 0.25);
+          } catch (e) {}
+        }
+
+        playSpatialStep(distance, pan) {
+          if (!this.ready || distance > 28) return;
+          try {
+            const atten = Math.max(0.02, 1 - distance / 28);
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(64, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.15);
+            gain.gain.setValueAtTime(0.36 * atten * atten, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+            if (this.ctx.createStereoPanner) {
+              const p = this.ctx.createStereoPanner();
+              p.pan.value = Math.max(-1, Math.min(1, pan));
+              osc.connect(gain);
+              gain.connect(p);
+              p.connect(this.master);
+            } else {
+              osc.connect(gain);
+              gain.connect(this.master);
+            }
+            osc.start(now);
+            osc.stop(now + 0.17);
+          } catch (e) {}
+        }
+
+        playHeartbeat(intensity) {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            [0, 0.15].forEach((offset, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(idx === 0 ? 68 : 54, now + offset);
+              osc.frequency.exponentialRampToValueAtTime(24, now + offset + 0.13);
+              gain.gain.setValueAtTime(0.36 * intensity, now + offset);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.14);
+              osc.connect(gain);
+              gain.connect(this.master);
+              osc.start(now + offset);
+              osc.stop(now + offset + 0.15);
+            });
+          } catch (e) {}
+        }
+
+        playDoor(slam) {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = slam ? 'sawtooth' : 'sine';
+            osc.frequency.setValueAtTime(slam ? 140 : 240, now);
+            osc.frequency.exponentialRampToValueAtTime(slam ? 24 : 95, now + (slam ? 0.28 : 0.42));
+            gain.gain.setValueAtTime(slam ? 0.52 : 0.18, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + (slam ? 0.3 : 0.44));
+            osc.connect(gain);
+            gain.connect(this.master);
+            osc.start(now);
+            osc.stop(now + 0.46);
+          } catch (e) {}
+        }
+
+        playGlassShatter() {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            [950, 1420, 1980, 2600].forEach((freq, i) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'square';
+              osc.frequency.setValueAtTime(freq, now + i * 0.03);
+              osc.frequency.exponentialRampToValueAtTime(180, now + i * 0.03 + 0.22);
+              gain.gain.setValueAtTime(0.28, now + i * 0.03);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.03 + 0.24);
+              osc.connect(gain);
+              gain.connect(this.master);
+              osc.start(now + i * 0.03);
+              osc.stop(now + i * 0.03 + 0.25);
+            });
+          } catch (e) {}
+        }
+
+        playBearTrap() {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            [115, 420, 920].forEach((freq) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(freq, now);
+              osc.frequency.exponentialRampToValueAtTime(32, now + 0.28);
+              gain.gain.setValueAtTime(0.42, now);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+              osc.connect(gain);
+              gain.connect(this.master);
+              osc.start(now);
+              osc.stop(now + 0.31);
+            });
+          } catch (e) {}
+        }
+
+        playPickup(isKey) {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = isKey ? 'triangle' : 'sine';
+            osc.frequency.setValueAtTime(isKey ? 540 : 340, now);
+            osc.frequency.exponentialRampToValueAtTime(isKey ? 980 : 540, now + 0.22);
+            gain.gain.setValueAtTime(0.26, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+            osc.connect(gain);
+            gain.connect(this.master);
+            osc.start(now);
+            osc.stop(now + 0.25);
+          } catch (e) {}
+        }
+
+        playSpotted() {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            [330, 495, 660].forEach((freq) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = 'sawtooth';
+              osc.frequency.setValueAtTime(freq, now);
+              osc.frequency.exponentialRampToValueAtTime(freq * 1.48, now + 0.36);
+              gain.gain.setValueAtTime(0.24, now);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+              osc.connect(gain);
+              gain.connect(this.master);
+              osc.start(now);
+              osc.stop(now + 0.42);
+            });
+          } catch (e) {}
+        }
+
+        playJumpscare(duration = 1.7) {
+          if (!this.ready) return;
+          try {
+            const now = this.ctx.currentTime;
+            [95, 240, 460, 760, 1140, 1620].forEach((freq, idx) => {
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = idx === 0 ? 'sine' : (idx % 2 === 0 ? 'sawtooth' : 'square');
+              osc.frequency.setValueAtTime(freq * 1.35, now);
+              osc.frequency.exponentialRampToValueAtTime(freq * 0.38, now + duration);
+              gain.gain.setValueAtTime(idx === 0 ? 0.88 : 0.28, now);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+              osc.connect(gain);
+              gain.connect(this.master);
+              osc.start(now);
+              osc.stop(now + duration + 0.05);
+            });
+          } catch (e) {}
+        }
+      }
+
+      // =========================================================================
+      // ANIMATED 2D CANVAS STORYBOARD (LORDAINE, JASON & INTERN)
+      // =========================================================================
+      class IllustratedStoryPlayer {
+        constructor(canvas, audio, onComplete) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext('2d');
+          this.audio = audio;
+          this.onComplete = onComplete;
+          this.running = false;
+          this.timer = 0;
+          this.lastScene = -1;
+          this.scenes = [
+            {
+              chapter: 'ATO I — O AMOR DE LORDAINE E JASON',
+              duration: 5.5,
+              text: 'Lordaine e seu marido Jason viviam felizes na grande mansão. Eram inseparáveis, cheios de planos e carinho.'
+            },
+            {
+              chapter: 'ATO II — A DISCUSSÃO E O VASO DE VIDRO',
+              duration: 5.8,
+              text: 'Até que uma noite, uma discussão violenta explodiu na sala. Lordaine perdeu o controle e acertou Jason com um pesado vaso de vidro, deixando-o inconsciente.'
+            },
+            {
+              chapter: 'ATO III — TRANCADO NO PORÃO',
+              duration: 5.5,
+              text: 'Tomada pela loucura, Lordaine arrastou Jason desacordado escada abaixo e o trancou dentro de uma cela no porão.'
+            },
+            {
+              chapter: 'ATO IV — O ESTAGIÁRIO NO FIM DO TURNO',
+              duration: 6.2,
+              text: 'Você é o estagiário dela. No fim do seu turno, ouviu gritos abafados, espiou pela janela e viu as atrocidades. Entre, ache as 5 chaves e salve Jason!'
+            }
+          ];
+        }
+
+        start() {
+          this.running = true;
+          this.timer = 0;
+          this.lastScene = -1;
+          this.resize();
+        }
+
+        stop() {
+          this.running = false;
+          if (this.onComplete) this.onComplete();
+        }
+
+        resize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          this.canvas.width = window.innerWidth * dpr;
+          this.canvas.height = window.innerHeight * dpr;
+          this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        drawCharacter(ctx, x, y, scale, opts) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.scale(scale, scale);
+
+          ctx.fillStyle = opts.outfit || '#262626';
+          ctx.beginPath();
+          if (opts.female) {
+            ctx.moveTo(-24, 20);
+            ctx.lineTo(24, 20);
+            ctx.lineTo(38, 125);
+            ctx.lineTo(-38, 125);
+          } else {
+            ctx.roundRect(-26, 20, 52, 100, 10);
+          }
+          ctx.fill();
+
+          ctx.strokeStyle = opts.skin || '#f3d2c1';
+          ctx.lineWidth = 10;
+          ctx.lineCap = 'round';
+          if (opts.raisedArm) {
+            ctx.beginPath();
+            ctx.moveTo(22, 32);
+            ctx.lineTo(54, -22);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(147, 197, 253, 0.85)';
+            ctx.beginPath();
+            ctx.ellipse(58, -36, 14, 20, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(-22, 32);
+            ctx.lineTo(-34, 84);
+            ctx.moveTo(22, 32);
+            ctx.lineTo(34, 84);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = opts.skin || '#f3d2c1';
+          ctx.beginPath();
+          ctx.arc(0, -8, 24, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = opts.hair || '#111111';
+          if (opts.female) {
+            ctx.beginPath();
+            ctx.arc(0, -12, 26, Math.PI, Math.PI * 2);
+            ctx.lineTo(30, 55);
+            ctx.lineTo(18, 55);
+            ctx.lineTo(16, -2);
+            ctx.lineTo(-16, -2);
+            ctx.lineTo(-18, 55);
+            ctx.lineTo(-30, 55);
+            ctx.closePath();
+            ctx.fill();
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, -14, 25, Math.PI * 0.95, Math.PI * 2.05);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = opts.mad ? '#ef4444' : '#111111';
+          ctx.beginPath();
+          ctx.arc(-8, -8, 3, 0, Math.PI * 2);
+          ctx.arc(8, -8, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = opts.mad ? '#ef4444' : '#331111';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          if (opts.smile) {
+            ctx.arc(0, -2, 8, 0.15 * Math.PI, 0.85 * Math.PI);
+          } else if (opts.mad) {
+            ctx.arc(0, 8, 8, 1.15 * Math.PI, 1.85 * Math.PI);
+          } else {
+            ctx.moveTo(-6, 4);
+            ctx.lineTo(6, 4);
+          }
+          ctx.stroke();
+
+          ctx.restore();
+        }
+
+        update(dt) {
+          if (!this.running) return;
+          this.timer += dt;
+
+          let acc = 0, idx = 0, localT = 0;
+          for (let i = 0; i < this.scenes.length; i++) {
+            if (this.timer < acc + this.scenes[i].duration) {
+              idx = i;
+              localT = (this.timer - acc) / this.scenes[i].duration;
+              break;
+            }
+            acc += this.scenes[i].duration;
+            if (i === this.scenes.length - 1) {
+              this.stop();
+              return;
+            }
+          }
+
+          if (idx !== this.lastScene) {
+            this.lastScene = idx;
+            document.getElementById('story-chapter').textContent = this.scenes[idx].chapter;
+            document.getElementById('story-subtitle').textContent = this.scenes[idx].text;
+            if (idx === 1) this.audio.playGlassShatter();
+            else if (idx === 2) this.audio.playDoor(true);
+            else this.audio.playPickup(false);
+          }
+
+          document.getElementById('story-progress-bar').style.width = `${Math.min(100, localT * 100)}%`;
+
+          const ctx = this.ctx;
+          const W = window.innerWidth;
+          const H = window.innerHeight;
+          const cx = W / 2;
+          const cy = H * 0.44;
+          const zoom = 1 + localT * 0.08;
+
+          ctx.clearRect(0, 0, W, H);
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.scale(zoom, zoom);
+          ctx.translate(-cx, -cy);
+
+          if (idx === 0) {
+            const grad = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(W, H) * 0.7);
+            grad.addColorStop(0, '#452710');
+            grad.addColorStop(1, '#120804');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+            ctx.beginPath();
+            ctx.arc(cx, cy - 110, 120, 0, Math.PI * 2);
+            ctx.fill();
+
+            this.drawCharacter(ctx, cx - 55, cy - 10, 1.15, { outfit: '#1e3a8a', hair: '#3b2314', smile: true });
+            this.drawCharacter(ctx, cx + 55, cy - 5, 1.12, { female: true, outfit: '#991b1b', hair: '#09090b', smile: true });
+
+            ctx.fillStyle = 'rgba(248, 113, 113, 0.75)';
+            ctx.font = 'bold 26px serif';
+            ctx.fillText('♥', cx - 10, cy - 95 - Math.sin(localT * 6) * 8);
+          } else if (idx === 1) {
+            const shake = localT > 0.45 && localT < 0.7 ? (Math.random() - 0.5) * 16 : 0;
+            ctx.translate(shake, shake);
+            const grad = ctx.createRadialGradient(cx, cy, 30, cx, cy, Math.max(W, H) * 0.75);
+            grad.addColorStop(0, '#5c0c0c');
+            grad.addColorStop(1, '#0d0202');
+            ctx.fillStyle = grad;
+            ctx.fillRect(-30, -30, W + 60, H + 60);
+
+            this.drawCharacter(ctx, cx - 45, cy - 5, 1.15, {
+              female: true, outfit: '#7f1d1d', skin: '#e5d4d4', mad: true, raisedArm: localT < 0.55
+            });
+
+            ctx.save();
+            ctx.translate(cx + 65, cy + (localT > 0.5 ? 55 : 0));
+            ctx.rotate(localT > 0.5 ? 1.25 : 0.15);
+            this.drawCharacter(ctx, 0, 0, 1.15, { outfit: '#1e3a8a', hair: '#3b2314', mad: true });
+            ctx.restore();
+
+            if (localT > 0.48) {
+              ctx.fillStyle = '#bae6fd';
+              for (let s = 0; s < 14; s++) {
+                const ang = (s / 14) * Math.PI * 2;
+                const dist = (localT - 0.48) * 260;
+                ctx.fillRect(cx + 45 + Math.cos(ang) * dist, cy - 30 + Math.sin(ang) * dist, 8, 8);
+              }
+            }
+          } else if (idx === 2) {
+            ctx.fillStyle = '#090507';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.fillStyle = '#1f191d';
+            ctx.fillRect(cx - 190, cy - 130, 380, 260);
+
+            ctx.save();
+            ctx.translate(cx + 45, cy + 75);
+            ctx.rotate(1.45);
+            this.drawCharacter(ctx, 0, 0, 1.0, { outfit: '#1e3a8a', hair: '#3b2314' });
+            ctx.restore();
+
+            ctx.strokeStyle = '#52525b';
+            ctx.lineWidth = 7;
+            for (let bx = cx - 150; bx <= cx + 150; bx += 38) {
+              ctx.beginPath();
+              ctx.moveTo(bx, cy - 125);
+              ctx.lineTo(bx, cy + 125);
+              ctx.stroke();
+            }
+
+            this.drawCharacter(ctx, cx - 125, cy + 5, 1.12, {
+              female: true, outfit: '#d4c8c8', skin: '#e8dede', mad: true
+            });
+          } else {
+            ctx.fillStyle = '#050811';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+            ctx.lineWidth = 1.5;
+            for (let r = 0; r < 45; r++) {
+              const rx = ((r * 73 + localT * 500) % W);
+              const ry = ((r * 137 + localT * 900) % H);
+              ctx.beginPath();
+              ctx.moveTo(rx, ry);
+              ctx.lineTo(rx - 8, ry + 22);
+              ctx.stroke();
+            }
+
+            ctx.fillStyle = '#450a0a';
+            ctx.fillRect(cx - 140, cy - 120, 280, 210);
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(cx - 140, cy - 120, 280, 210);
+
+            this.drawCharacter(ctx, cx + 25, cy - 10, 0.9, { female: true, outfit: '#09090b', skin: '#18181b', mad: true });
+            this.drawCharacter(ctx, cx - 155, cy + 45, 1.25, { outfit: '#334155', hair: '#1e293b' });
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // =========================================================================
+      // PROCEDURAL PBR TEXTURES & PAST PORTRAIT GENERATOR
+      // =========================================================================
+      function createProceduralTextures() {
+        const wallC = document.createElement('canvas');
+        wallC.width = 512; wallC.height = 512;
+        const wCtx = wallC.getContext('2d');
+        wCtx.fillStyle = '#3d2d25';
+        wCtx.fillRect(0, 0, 512, 512);
+        for (let x = 0; x < 512; x += 48) {
+          wCtx.fillStyle = (x % 96 === 0) ? '#2f211a' : '#362720';
+          wCtx.fillRect(x, 0, 22, 512);
+        }
+        wCtx.fillStyle = '#211510';
+        wCtx.fillRect(0, 312, 512, 200);
+        wCtx.fillStyle = '#5c3a21';
+        wCtx.fillRect(0, 304, 512, 10);
+        for (let i = 0; i < 650; i++) {
+          wCtx.fillStyle = Math.random() > 0.5 ? 'rgba(10,7,6,0.28)' : 'rgba(115,92,74,0.18)';
+          wCtx.fillRect(Math.random() * 512, Math.random() * 512, 5 + Math.random() * 14, 5 + Math.random() * 14);
+        }
+        const wallTex = new THREE.CanvasTexture(wallC);
+        wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+
+        const wallBumpC = document.createElement('canvas');
+        wallBumpC.width = 256; wallBumpC.height = 256;
+        const wbCtx = wallBumpC.getContext('2d');
+        wbCtx.fillStyle = '#808080';
+        wbCtx.fillRect(0, 0, 256, 256);
+        wbCtx.fillStyle = '#c8c8c8';
+        wbCtx.fillRect(0, 152, 256, 8);
+        const wallBumpTex = new THREE.CanvasTexture(wallBumpC);
+        wallBumpTex.wrapS = wallBumpTex.wrapT = THREE.RepeatWrapping;
+
+        const floorC = document.createElement('canvas');
+        floorC.width = 512; floorC.height = 512;
+        const fCtx = floorC.getContext('2d');
+        const floorBumpC = document.createElement('canvas');
+        floorBumpC.width = 512; floorBumpC.height = 512;
+        const fbCtx = floorBumpC.getContext('2d');
+        fbCtx.fillStyle = '#9c9c9c';
+        fbCtx.fillRect(0, 0, 512, 512);
+
+        const plankH = 48;
+        for (let y = 0; y < 512; y += plankH) {
+          fCtx.fillStyle = ((y / plankH) % 2 === 0) ? '#332117' : '#281911';
+          fCtx.fillRect(0, y, 512, plankH - 3);
+          fCtx.fillStyle = '#090503';
+          fCtx.fillRect(0, y + plankH - 3, 512, 3);
+          fbCtx.fillStyle = '#181818';
+          fbCtx.fillRect(0, y + plankH - 3, 512, 3);
+          const jx = ((y / plankH) * 173) % 460;
+          fCtx.fillRect(jx, y, 3, plankH);
+          fbCtx.fillRect(jx, y, 3, plankH);
+        }
+        const floorTex = new THREE.CanvasTexture(floorC);
+        floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+        floorTex.repeat.set(24, 24);
+
+        const floorBumpTex = new THREE.CanvasTexture(floorBumpC);
+        floorBumpTex.wrapS = floorBumpTex.wrapT = THREE.RepeatWrapping;
+        floorBumpTex.repeat.set(24, 24);
+
+        const doorC = document.createElement('canvas');
+        doorC.width = 128; doorC.height = 256;
+        const dCtx = doorC.getContext('2d');
+        dCtx.fillStyle = '#3f2315';
+        dCtx.fillRect(0, 0, 128, 256);
+        dCtx.strokeStyle = '#140905';
+        dCtx.lineWidth = 6;
+        dCtx.strokeRect(10, 12, 108, 105);
+        dCtx.strokeRect(10, 134, 108, 110);
+        dCtx.fillStyle = '#eab308';
+        dCtx.beginPath();
+        dCtx.arc(104, 132, 6, 0, Math.PI * 2);
+        dCtx.fill();
+        const doorTex = new THREE.CanvasTexture(doorC);
+
+        return { wallTex, wallBumpTex, floorTex, floorBumpTex, doorTex };
+      }
+
+      function createPaintingTexture(type) {
+        const c = document.createElement('canvas');
+        c.width = 256; c.height = 320;
+        const ctx = c.getContext('2d');
+
+        ctx.fillStyle = '#2d1408';
+        ctx.fillRect(0, 0, 256, 320);
+
+        ctx.fillStyle = type === 'WEDDING' ? '#2c1e16' : (type === 'MADNESS' ? '#2a0606' : '#141118');
+        ctx.fillRect(24, 24, 208, 272);
+
+        if (type === 'WEDDING') {
+          ctx.fillStyle = '#1e3a8a';
+          ctx.fillRect(58, 175, 58, 110);
+          ctx.fillStyle = '#f3d2c1';
+          ctx.beginPath(); ctx.arc(87, 145, 24, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#3b2314';
+          ctx.beginPath(); ctx.arc(87, 138, 25, Math.PI, Math.PI * 2); ctx.fill();
+
+          ctx.fillStyle = '#fef2f2';
+          ctx.fillRect(140, 175, 58, 110);
+          ctx.fillStyle = '#f3d2c1';
+          ctx.beginPath(); ctx.arc(169, 145, 23, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#09090b';
+          ctx.fillRect(145, 130, 48, 70);
+        } else if (type === 'VASE') {
+          ctx.fillStyle = '#93c5fd';
+          ctx.beginPath();
+          ctx.ellipse(128, 180, 42, 68, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = '#e5d4d4';
+          ctx.beginPath(); ctx.arc(128, 145, 34, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#050505';
+          ctx.fillRect(92, 120, 72, 120);
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(116, 142, 5, 0, Math.PI * 2);
+          ctx.arc(140, 142, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#dc2626';
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(45, 50); ctx.lineTo(210, 260);
+          ctx.moveTo(205, 55); ctx.lineTo(50, 255);
+          ctx.stroke();
+        }
+        return new THREE.CanvasTexture(c);
+      }
+
+      // =========================================================================
+      // ARTICULATED 3D LORDAINE RIG
+      // =========================================================================
+      class ArticulatedLordaineRig {
+        constructor(scene) {
+          this.root = new THREE.Group();
+
+          const skinMat = new THREE.MeshStandardMaterial({
+            color: 0xe6dcdc, emissive: 0x2b0404, emissiveIntensity: 0.32, roughness: 0.58
+          });
+          const dressMat = new THREE.MeshStandardMaterial({
+            color: 0xd1c7c5, roughness: 0.9, side: THREE.DoubleSide
+          });
+          const bloodMat = new THREE.MeshStandardMaterial({
+            color: 0x690909, roughness: 0.94, side: THREE.DoubleSide
+          });
+          const hairMat = new THREE.MeshStandardMaterial({ color: 0x070607, roughness: 0.94 });
+          const socketMat = new THREE.MeshBasicMaterial({ color: 0x050000 });
+          const pupilMat = new THREE.MeshBasicMaterial({ color: 0xff1e1e });
+
+          this.pelvis = new THREE.Group();
+          this.pelvis.position.set(0, 0.95, 0);
+          this.root.add(this.pelvis);
+
+          const skirtUpper = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.34, 0.55, 14, 1, true), dressMat);
+          skirtUpper.position.y = -0.25;
+          skirtUpper.castShadow = true;
+          this.pelvis.add(skirtUpper);
+
+          const skirtLower = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.48, 0.45, 14, 1, true), bloodMat);
+          skirtLower.position.y = -0.72;
+          this.pelvis.add(skirtLower);
+
+          this.torso = new THREE.Group();
+          this.torso.position.set(0, 0.05, 0);
+          this.pelvis.add(this.torso);
+
+          const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.16, 0.56, 12), dressMat);
+          chest.position.y = 0.28;
+          chest.castShadow = true;
+          this.torso.add(chest);
+
+          this.neck = new THREE.Group();
+          this.neck.position.set(0, 0.58, 0.02);
+          this.torso.add(this.neck);
+
+          const neckCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.075, 0.14, 10), skinMat);
+          neckCyl.position.y = 0.06;
+          this.neck.add(neckCyl);
+
+          this.head = new THREE.Group();
+          this.head.position.set(0, 0.18, 0.02);
+          this.neck.add(this.head);
+
+          const skull = new THREE.Mesh(new THREE.SphereGeometry(0.175, 18, 18), skinMat);
+          skull.scale.set(0.92, 1.22, 0.96);
+          skull.castShadow = true;
+          this.head.add(skull);
+
+          [-0.06, 0.06].forEach((ex) => {
+            const socket = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 10), socketMat);
+            socket.position.set(ex, 0.035, 0.148);
+            socket.scale.set(1.1, 0.85, 0.5);
+            const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 8), pupilMat);
+            pupil.position.set(ex, 0.035, 0.172);
+            this.head.add(socket, pupil);
+          });
+
+          this.jaw = new THREE.Group();
+          this.jaw.position.set(0, -0.065, 0.05);
+          const jawMesh = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.065, 0.11), skinMat);
+          jawMesh.position.set(0, -0.02, 0.045);
+          const mouthCavity = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.055, 0.04), socketMat);
+          mouthCavity.position.set(0, 0.005, 0.095);
+          this.jaw.add(jawMesh, mouthCavity);
+          this.head.add(this.jaw);
+
+          const hairCrown = new THREE.Mesh(new THREE.SphereGeometry(0.186, 14, 14), hairMat);
+          hairCrown.position.set(0, 0.03, -0.025);
+          hairCrown.scale.set(1.02, 1.22, 1.05);
+          this.head.add(hairCrown);
+
+          const hairBack = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.25, 0.88, 10), hairMat);
+          hairBack.position.set(0, -0.34, -0.08);
+          this.head.add(hairBack);
+
+          [-0.15, 0.15].forEach((hx) => {
+            const lock = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.01, 0.48, 6), hairMat);
+            lock.position.set(hx, -0.16, 0.08);
+            this.head.add(lock);
+          });
+
+          this.leftArm = this.createArm(-0.23, skinMat, hairMat);
+          this.rightArm = this.createArm(0.23, skinMat, hairMat);
+          this.torso.add(this.leftArm.shoulder, this.rightArm.shoulder);
+
+          this.leftLeg = this.createLeg(-0.11, skinMat);
+          this.rightLeg = this.createLeg(0.11, skinMat);
+          this.pelvis.add(this.leftLeg.hip, this.rightLeg.hip);
+
+          this.auraLight = new THREE.PointLight(0x991b1b, 1.3, 6.5);
+          this.auraLight.position.set(0, 1.55, 0.35);
+          this.root.add(this.auraLight);
+
+          scene.add(this.root);
+          this.gaitPhase = 0;
+          this.idlePhase = 0;
+        }
+
+        createArm(x, skinMat, clawMat) {
+          const shoulder = new THREE.Group();
+          shoulder.position.set(x, 0.48, 0);
+          const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.035, 0.38, 8), skinMat);
+          upper.position.y = -0.19;
+          shoulder.add(upper);
+
+          const elbow = new THREE.Group();
+          elbow.position.set(0, -0.38, 0);
+          shoulder.add(elbow);
+
+          const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.026, 0.36, 8), skinMat);
+          fore.position.y = -0.18;
+          elbow.add(fore);
+
+          [-0.02, 0, 0.02].forEach((fx) => {
+            const claw = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.055, 5), clawMat);
+            claw.rotation.x = Math.PI;
+            claw.position.set(fx, -0.42, 0.01);
+            elbow.add(claw);
+          });
+          return { shoulder, elbow };
+        }
+
+        createLeg(x, skinMat) {
+          const hip = new THREE.Group();
+          hip.position.set(x, -0.02, 0);
+          const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.046, 0.44, 8), skinMat);
+          thigh.position.y = -0.22;
+          hip.add(thigh);
+
+          const knee = new THREE.Group();
+          knee.position.set(0, -0.44, 0);
+          hip.add(knee);
+
+          const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.032, 0.44, 8), skinMat);
+          shin.position.y = -0.22;
+          knee.add(shin);
+          return { hip, knee };
+        }
+
+        lerp(a, b, t) {
+          return a + (b - a) * Math.min(1, t);
+        }
+
+        update(dt, state, speed) {
+          this.idlePhase += dt * 2.3;
+          if (speed > 0.1) this.gaitPhase += dt * speed * 2.5;
+
+          let torsoX = 0.06, headZ = Math.sin(this.idlePhase * 0.7) * 0.22, headX = 0.04, jawX = 0.06;
+          let lHip = 0, rHip = 0, lKnee = 0, rKnee = 0;
+          let lShX = 0, rShX = 0, lElb = -0.24, rElb = -0.24;
+          let bobY = 0.95 + Math.sin(this.idlePhase) * 0.016;
+
+          if (state === 'PATROL' || state === 'INVESTIGATE') {
+            const s = Math.sin(this.gaitPhase);
+            const c = Math.cos(this.gaitPhase);
+            bobY = 0.94 + Math.abs(c) * 0.035;
+            lHip = s * 0.48; rHip = -s * 0.48;
+            lKnee = Math.max(0, -c) * 0.65; rKnee = Math.max(0, c) * 0.65;
+            lShX = -s * 0.35; rShX = s * 0.35;
+            torsoX = state === 'INVESTIGATE' ? 0.22 : 0.1;
+            headZ = state === 'INVESTIGATE' ? 0.36 : Math.sin(this.idlePhase) * 0.16;
+          } else if (state === 'CHASE') {
+            const s = Math.sin(this.gaitPhase * 1.15);
+            const c = Math.cos(this.gaitPhase * 1.15);
+            bobY = 0.91 + Math.abs(c) * 0.055;
+            lHip = s * 0.76; rHip = -s * 0.76;
+            lKnee = Math.max(0, -c) * 0.95; rKnee = Math.max(0, c) * 0.95;
+            lShX = -1.28; rShX = -1.28;
+            torsoX = 0.4; headX = -0.3; jawX = 0.48;
+          } else if (state === 'JUMPSCARE') {
+            lShX = -1.5; rShX = -1.5; jawX = 0.62;
+            headZ = Math.sin(this.idlePhase * 9) * 0.24;
+          }
+
+          const k = dt * 12;
+          this.pelvis.position.y = this.lerp(this.pelvis.position.y, bobY, k);
+          this.torso.rotation.x = this.lerp(this.torso.rotation.x, torsoX, k);
+          this.head.rotation.x = this.lerp(this.head.rotation.x, headX, k);
+          this.head.rotation.z = this.lerp(this.head.rotation.z, headZ, k);
+          this.jaw.rotation.x = this.lerp(this.jaw.rotation.x, jawX, k);
+          this.leftLeg.hip.rotation.x = this.lerp(this.leftLeg.hip.rotation.x, lHip, k);
+          this.rightLeg.hip.rotation.x = this.lerp(this.rightLeg.hip.rotation.x, rHip, k);
+          this.leftLeg.knee.rotation.x = this.lerp(this.leftLeg.knee.rotation.x, lKnee, k);
+          this.rightLeg.knee.rotation.x = this.lerp(this.rightLeg.knee.rotation.x, rKnee, k);
+          this.leftArm.shoulder.rotation.x = this.lerp(this.leftArm.shoulder.rotation.x, lShX, k);
+          this.rightArm.shoulder.rotation.x = this.lerp(this.rightArm.shoulder.rotation.x, rShX, k);
+          this.leftArm.elbow.rotation.x = this.lerp(this.leftArm.elbow.rotation.x, lElb, k);
+          this.rightArm.elbow.rotation.x = this.lerp(this.rightArm.elbow.rotation.x, rElb, k);
+        }
+      }
+
+      // =========================================================================
+      // MAIN 3D SURVIVAL HORROR ENGINE
+      // =========================================================================
+      class LordaineMansionGame {
+        constructor() {
+          this.state = 'MENU';
+          this.audio = new HorrorSoundEngine();
+          this.clock = new THREE.Clock();
+
+          this.scene = new THREE.Scene();
+          this.scene.background = new THREE.Color(0x070304);
+          this.scene.fog = new THREE.FogExp2(0x070304, 0.034);
+
+          this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.08, 85);
+          this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+          this.renderer.domElement.id = 'webgl-canvas';
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          this.renderer.shadowMap.enabled = true;
+          this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          this.renderer.toneMappingExposure = 1.24;
+          document.body.appendChild(this.renderer.domElement);
+
+          this.vfxCanvas = document.getElementById('vfx-canvas');
+          this.vfxCtx = this.vfxCanvas.getContext('2d');
+          this.vfxCanvas.width = window.innerWidth;
+          this.vfxCanvas.height = window.innerHeight;
+
+          this.colliders = [];
+          this.doors = [];
+          this.wardrobes = [];
+          this.pickups = [];
+          this.paintings = [];
+          this.flickerLights = [];
+          this.bearTraps = [];
+
+          this.keysDown = {};
+          this.joyVec = { x: 0, y: 0 };
+          this.mobileSprint = false;
+          this.touchEnabled = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth < 1024);
+
+          this.player = {
+            pos: new THREE.Vector3(-25.5, 1.7, 25.0),
+            vel: new THREE.Vector3(0, 0, 0),
+            yaw: -Math.PI / 2,
+            pitch: 0,
+            roll: 0,
+            bobPhase: 0,
+            bobIntensity: 0,
+            radius: 0.42,
+            stamina: 100,
+            sanity: 100,
+            battery: 100,
+            spareBatteries: 1,
+            flashlightOn: true,
+            keys: 0,
+            stepTimer: 0,
+            heartTimer: 0,
+            trappedCount: 0,
+            inWardrobe: null
+          };
+
+          this.wakeTimer = 0;
+          this.camScare = { active: false, timer: 0, reason: '' };
+          this.startTime = 0;
+
+          this.storyPlayer = new IllustratedStoryPlayer(
+            document.getElementById('story-canvas'),
+            this.audio,
+            () => this.beginMansionGameplay()
+          );
+
+          this.textures = createProceduralTextures();
+          this.setupLighting();
+          this.buildFurnishedMansion();
+          this.createLordaine();
+          this.createCameraScareRig();
+          this.createDust();
+          this.bindEvents();
+
+          this.animate = this.animate.bind(this);
+          requestAnimationFrame(this.animate);
+        }
+
+        setupLighting() {
+          this.scene.add(new THREE.AmbientLight(0x453532, 1.15));
+          this.scene.add(new THREE.HemisphereLight(0x5c4942, 0x1a110d, 0.72));
+
+          this.flashlight = new THREE.SpotLight(0xfff4d6, 3.9, 44, Math.PI / 4.8, 0.45, 1.05);
+          this.flashlight.castShadow = true;
+          this.flashlight.shadow.mapSize.width = 1024;
+          this.flashlight.shadow.mapSize.height = 1024;
+          this.flashlightTarget = new THREE.Object3D();
+          this.scene.add(this.flashlight, this.flashlightTarget);
+          this.flashlight.target = this.flashlightTarget;
+
+          const coneGeo = new THREE.ConeGeometry(2.3, 9.0, 24, 1, true);
+          coneGeo.translate(0, -4.5, 0);
+          coneGeo.rotateX(Math.PI / 2);
+          this.flashlightCone = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({
+            color: 0xfff3d1,
+            transparent: true,
+            opacity: 0.032,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending
+          }));
+          this.scene.add(this.flashlightCone);
+
+          this.playerAura = new THREE.PointLight(0x8c7a70, 0.75, 7.2);
+          this.scene.add(this.playerAura);
+
+          this.menuRimLight = new THREE.SpotLight(0xff1e1e, 5.5, 14, Math.PI / 3.5, 0.5, 1.0);
+          this.menuRimTarget = new THREE.Object3D();
+          this.scene.add(this.menuRimLight, this.menuRimTarget);
+          this.menuRimLight.target = this.menuRimTarget;
+
+          this.menuFillLight = new THREE.PointLight(0x93c5fd, 1.45, 10);
+          this.scene.add(this.menuFillLight);
+        }
+
+        addBox(x, y, z, w, h, d, mat, solid = true) {
+          const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+          mesh.position.set(x, y, z);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          this.scene.add(mesh);
+          if (solid) {
+            this.colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true });
+          }
+          return mesh;
+        }
+
+        addRug(x, z, w, d, color) {
+          const g = new THREE.Group();
+          g.position.set(x, 0.012, z);
+          const border = new THREE.Mesh(
+            new THREE.BoxGeometry(w + 0.24, 0.02, d + 0.24),
+            new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.9 })
+          );
+          const inner = new THREE.Mesh(
+            new THREE.BoxGeometry(w, 0.026, d),
+            new THREE.MeshStandardMaterial({ color, roughness: 0.92 })
+          );
+          inner.position.y = 0.004;
+          border.receiveShadow = true;
+          inner.receiveShadow = true;
+          g.add(border, inner);
+          this.scene.add(g);
+        }
+
+        addCurtainWindow(x, y, z, rotY) {
+          const g = new THREE.Group();
+          g.position.set(x, y, z);
+          g.rotation.y = rotY;
+          const glass = new THREE.Mesh(
+            new THREE.BoxGeometry(1.7, 1.85, 0.06),
+            new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x090d16, roughness: 0.2, metalness: 0.5 })
+          );
+          const rod = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.03, 0.03, 2.25, 10),
+            new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8, roughness: 0.3 })
+          );
+          rod.rotation.z = Math.PI / 2;
+          rod.position.set(0, 1.02, 0.14);
+          const curtMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.88 });
+          const leftCurt = new THREE.Mesh(new THREE.BoxGeometry(0.45, 2.0, 0.12), curtMat);
+          leftCurt.position.set(-0.78, 0.02, 0.14);
+          const rightCurt = new THREE.Mesh(new THREE.BoxGeometry(0.45, 2.0, 0.12), curtMat);
+          rightCurt.position.set(0.78, 0.02, 0.14);
+          g.add(glass, rod, leftCurt, rightCurt);
+          this.scene.add(g);
+        }
+
+        addTableLamp(x, y, z) {
+          const g = new THREE.Group();
+          g.position.set(x, y, z);
+          const base = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.11, 0.15, 0.34, 12),
+            new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.75, roughness: 0.3 })
+          );
+          base.position.y = 0.17;
+          const shade = new THREE.Mesh(
+            new THREE.ConeGeometry(0.24, 0.28, 16, 1, true),
+            new THREE.MeshStandardMaterial({
+              color: 0xfef3c7, emissive: 0xfbbf24, emissiveIntensity: 0.65, side: THREE.DoubleSide, roughness: 0.7
+            })
+          );
+          shade.position.y = 0.42;
+          g.add(base, shade);
+          this.scene.add(g);
+        }
+
+        addBed(x, z, rotY) {
+          const g = new THREE.Group();
+          g.position.set(x, 0, z);
+          g.rotation.y = rotY;
+          const wood = new THREE.MeshStandardMaterial({ color: 0x3b1e10, roughness: 0.68 });
+          const trim = new THREE.MeshStandardMaterial({ color: 0x5c2e16, roughness: 0.65 });
+          const sheet = new THREE.MeshStandardMaterial({ color: 0xe7dfd5, roughness: 0.86 });
+          const blanket = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.88 });
+
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.38, 2.55), wood);
+          frame.position.y = 0.19;
+          frame.castShadow = true;
+
+          const matMesh = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.24, 2.38), sheet);
+          matMesh.position.y = 0.48;
+          matMesh.castShadow = true;
+
+          const blMesh = new THREE.Mesh(new THREE.BoxGeometry(1.93, 0.26, 1.52), blanket);
+          blMesh.position.set(0, 0.51, 0.38);
+          blMesh.castShadow = true;
+
+          const fold = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.08, 0.24), sheet);
+          fold.position.set(0, 0.64, -0.35);
+
+          const headboard = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.42, 0.14), wood);
+          headboard.position.set(0, 0.71, -1.22);
+          headboard.castShadow = true;
+
+          const hbPanel = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.96, 0.05), trim);
+          hbPanel.position.set(0, 0.84, -1.15);
+
+          [-0.44, 0.44].forEach((px) => {
+            const pillow = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.15, 0.42), sheet);
+            pillow.position.set(px, 0.66, -0.88);
+            pillow.rotation.x = 0.12;
+            pillow.castShadow = true;
+            g.add(pillow);
+          });
+
+          g.add(frame, matMesh, blMesh, fold, headboard, hbPanel);
+          this.scene.add(g);
+
+          const w = Math.abs(Math.cos(rotY)) * 2.05 + Math.abs(Math.sin(rotY)) * 2.55;
+          const d = Math.abs(Math.sin(rotY)) * 2.05 + Math.abs(Math.cos(rotY)) * 2.55;
+          this.colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true });
+        }
+
+        addSofa(x, z, rotY) {
+          const g = new THREE.Group();
+          g.position.set(x, 0, z);
+          g.rotation.y = rotY;
+          const velvet = new THREE.MeshStandardMaterial({ color: 0x6b1414, roughness: 0.82 });
+          const cushionMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.8 });
+          const wood = new THREE.MeshStandardMaterial({ color: 0x2b150c, roughness: 0.7 });
+
+          const base = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.36, 0.96), velvet);
+          base.position.y = 0.24;
+          base.castShadow = true;
+
+          const back = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.68, 0.24), velvet);
+          back.position.set(0, 0.7, -0.36);
+          back.castShadow = true;
+
+          [-0.56, 0.56].forEach((cx) => {
+            const seatCush = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.14, 0.74), cushionMat);
+            seatCush.position.set(cx, 0.47, 0.06);
+            const backCush = new THREE.Mesh(new THREE.BoxGeometry(1.04, 0.44, 0.14), cushionMat);
+            backCush.position.set(cx, 0.68, -0.2);
+            backCush.rotation.x = -0.1;
+            g.add(seatCush, backCush);
+          });
+
+          [-1.12, 1.12].forEach((ax) => {
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.62, 0.98), velvet);
+            arm.position.set(ax, 0.36, 0);
+            arm.castShadow = true;
+            g.add(arm);
+          });
+
+          [[-1.08, -0.4], [1.08, -0.4], [-1.08, 0.4], [1.08, 0.4]].forEach(([lx, lz]) => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.1), wood);
+            leg.position.set(lx, 0.04, lz);
+            g.add(leg);
+          });
+
+          g.add(base, back);
+          this.scene.add(g);
+
+          const w = Math.abs(Math.cos(rotY)) * 2.44 + Math.abs(Math.sin(rotY)) * 0.96;
+          const d = Math.abs(Math.sin(rotY)) * 2.44 + Math.abs(Math.cos(rotY)) * 0.96;
+          this.colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true });
+        }
+
+        addDiningSet(x, z) {
+          const wood = new THREE.MeshStandardMaterial({ color: 0x3f2012, roughness: 0.68 });
+          const seatMat = new THREE.MeshStandardMaterial({ color: 0x5c1111, roughness: 0.85 });
+
+          this.addBox(x, 0.4, z - 1.5, 0.24, 0.8, 0.24, wood);
+          this.addBox(x, 0.4, z + 1.5, 0.24, 0.8, 0.24, wood);
+          this.addBox(x, 0.78, z, 2.0, 0.12, 4.3, wood);
+          this.addBox(x, 0.86, z, 2.24, 0.1, 4.64, wood);
+
+          [-1.35, 1.35].forEach((cx) => {
+            [-1.4, 0, 1.4].forEach((cz) => {
+              const g = new THREE.Group();
+              g.position.set(x + cx, 0, z + cz);
+              if (cx > 0) g.rotation.y = Math.PI;
+              const seat = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.52), seatMat);
+              seat.position.y = 0.48;
+              seat.castShadow = true;
+              const backPostL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.56, 0.06), wood);
+              backPostL.position.set(-0.22, 0.76, -0.22);
+              const backPostR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.56, 0.06), wood);
+              backPostR.position.set(0.22, 0.76, -0.22);
+              const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.12, 0.06), wood);
+              topRail.position.set(0, 1.0, -0.22);
+              const midSlat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.08, 0.04), wood);
+              midSlat.position.set(0, 0.78, -0.22);
+              g.add(seat, backPostL, backPostR, topRail, midSlat);
+              [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(([lx, lz]) => {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.025, 0.46, 8), wood);
+                leg.position.set(lx, 0.23, lz);
+                g.add(leg);
+              });
+              this.scene.add(g);
+            });
+          });
+        }
+
+        addBookshelf(x, z, rotY) {
+          const g = new THREE.Group();
+          g.position.set(x, 0, z);
+          g.rotation.y = rotY;
+          const wood = new THREE.MeshStandardMaterial({ color: 0x2b150c, roughness: 0.72 });
+
+          const crown = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.1, 0.62), wood);
+          crown.position.y = 2.75;
+          const base = new THREE.Mesh(new THREE.BoxGeometry(2.34, 0.14, 0.62), wood);
+          base.position.y = 0.07;
+          const backPanel = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.65, 0.06), wood);
+          backPanel.position.set(0, 1.38, -0.22);
+          const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.65, 0.56), wood);
+          sideL.position.set(-1.06, 1.38, 0.02);
+          const sideR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.65, 0.56), wood);
+          sideR.position.set(1.06, 1.38, 0.02);
+          g.add(crown, base, backPanel, sideL, sideR);
+
+          const bookColors = [0x7f1d1d, 0x1e3a8a, 0x14532d, 0x713f12, 0x4c1d95];
+          for (let shelf = 0; shelf < 4; shelf++) {
+            const sy = 0.22 + shelf * 0.62;
+            const plank = new THREE.Mesh(new THREE.BoxGeometry(2.06, 0.05, 0.52), wood);
+            plank.position.set(0, sy, 0.02);
+            g.add(plank);
+
+            for (let bx = -0.88; bx <= 0.88; bx += 0.17) {
+              const bh = 0.34 + ((Math.abs(Math.round(bx * 10 + shelf * 7)) % 5) * 0.03);
+              const bk = new THREE.Mesh(
+                new THREE.BoxGeometry(0.13, bh, 0.36),
+                new THREE.MeshStandardMaterial({ color: bookColors[Math.abs(Math.round(bx * 10 + shelf)) % bookColors.length], roughness: 0.8 })
+              );
+              bk.position.set(bx, sy + 0.025 + bh / 2, 0.05);
+              g.add(bk);
+            }
+          }
+          this.scene.add(g);
+
+          const w = Math.abs(Math.cos(rotY)) * 2.34 + Math.abs(Math.sin(rotY)) * 0.62;
+          const d = Math.abs(Math.sin(rotY)) * 2.34 + Math.abs(Math.cos(rotY)) * 0.62;
+          this.colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true });
+        }
+
+        addDresser(x, z, rotY) {
+          const g = new THREE.Group();
+          g.position.set(x, 0, z);
+          g.rotation.y = rotY;
+          const wood = new THREE.MeshStandardMaterial({ color: 0x3b1e10, roughness: 0.7 });
+          const handleMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.8, roughness: 0.3 });
+
+          const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.05, 0.62), wood);
+          body.position.y = 0.525;
+          body.castShadow = true;
+          const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.07, 0.7), wood);
+          top.position.y = 1.08;
+          g.add(body, top);
+
+          [0.3, 0.62, 0.92].forEach((dy) => {
+            const front = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.22, 0.04), wood);
+            front.position.set(0, dy, 0.31);
+            const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), handleMat);
+            knob.position.set(0, dy, 0.34);
+            g.add(front, knob);
+          });
+          this.scene.add(g);
+
+          const w = Math.abs(Math.cos(rotY)) * 1.6 + Math.abs(Math.sin(rotY)) * 0.7;
+          const d = Math.abs(Math.sin(rotY)) * 1.6 + Math.abs(Math.cos(rotY)) * 0.7;
+          this.colliders.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true });
+
+          const lampPos = new THREE.Vector3(0, 1.11, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+          this.addTableLamp(x + lampPos.x, lampPos.y, z + lampPos.z);
+        }
+
+        addPainting(x, y, z, rotY, type, caption) {
+          const g = new THREE.Group();
+          g.position.set(x, y, z);
+          g.rotation.y = rotY;
+
+          const outerFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(1.24, 1.54, 0.07),
+            new THREE.MeshStandardMaterial({ color: 0x5c2b0c, roughness: 0.55 })
+          );
+          const goldTrim = new THREE.Mesh(
+            new THREE.BoxGeometry(1.14, 1.44, 0.08),
+            new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.75, roughness: 0.32 })
+          );
+          const art = new THREE.Mesh(
+            new THREE.BoxGeometry(1.02, 1.32, 0.09),
+            new THREE.MeshStandardMaterial({ map: createPaintingTexture(type), roughness: 0.65 })
+          );
+          g.add(outerFrame, goldTrim, art);
+          this.scene.add(g);
+          this.paintings.push({ pos: new THREE.Vector3(x, 1.7, z), caption });
+        }
+
+        addDoor(x, z, rotY) {
+          const pivot = new THREE.Group();
+          pivot.position.set(x, 0, z);
+          pivot.rotation.y = rotY;
+          const doorMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1.9, 3.0, 0.15),
+            new THREE.MeshStandardMaterial({ map: this.textures.doorTex, roughness: 0.72 })
+          );
+          doorMesh.position.set(0.95, 1.5, 0);
+          doorMesh.castShadow = true;
+          pivot.add(doorMesh);
+          this.scene.add(pivot);
+
+          const center = new THREE.Vector3(x + Math.cos(rotY) * 0.95, 1.5, z - Math.sin(rotY) * 0.95);
+          const collider = { minX: center.x - 1.0, maxX: center.x + 1.0, minZ: center.z - 1.0, maxZ: center.z + 1.0, active: true };
+          this.colliders.push(collider);
+          this.doors.push({ pivot, center, baseRot: rotY, targetRot: rotY, isOpen: false, collider });
+        }
+
+        addWardrobe(x, z, rotY) {
+          const group = new THREE.Group();
+          group.position.set(x, 0, z);
+          group.rotation.y = rotY;
+          const wood = new THREE.MeshStandardMaterial({ color: 0x2b150c, roughness: 0.72 });
+          const trim = new THREE.MeshStandardMaterial({ color: 0x452212, roughness: 0.68 });
+          const body = new THREE.Mesh(new THREE.BoxGeometry(1.44, 2.52, 0.92), wood);
+          body.position.y = 1.26;
+          body.castShadow = true;
+          const doorL = new THREE.Mesh(new THREE.BoxGeometry(0.66, 2.28, 0.04), trim);
+          doorL.position.set(-0.35, 1.26, 0.47);
+          const doorR = new THREE.Mesh(new THREE.BoxGeometry(0.66, 2.28, 0.04), trim);
+          doorR.position.set(0.35, 1.26, 0.47);
+          group.add(body, doorL, doorR);
+          this.scene.add(group);
+
+          const front = new THREE.Vector3(Math.sin(rotY), 0, Math.cos(rotY));
+          const interactPos = new THREE.Vector3(x, 1.7, z).addScaledVector(front, 1.05);
+          this.colliders.push({ minX: x - 0.75, maxX: x + 0.75, minZ: z - 0.55, maxZ: z + 0.55, active: true });
+          this.wardrobes.push({ pos: new THREE.Vector3(x, 1.7, z), interactPos, exitPos: interactPos.clone(), lookYaw: rotY });
+        }
+
+        addSconceLight(x, z, color = 0xffe4b5, intensity = 1.3) {
+          const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.14, 0.25), new THREE.MeshBasicMaterial({ color }));
+          lamp.position.set(x, 3.85, z);
+          this.scene.add(lamp);
+          const light = new THREE.PointLight(color, intensity, 16.5);
+          light.position.set(x, 3.55, z);
+          this.scene.add(light);
+          this.flickerLights.push({ light, base: intensity, timer: Math.random() * 4 });
+        }
+
+        addPickup(x, z, type) {
+          const group = new THREE.Group();
+          group.position.set(x, 1.05, z);
+          if (type === 'KEY') {
+            const mat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0x92400e, emissiveIntensity: 0.95, metalness: 0.85 });
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.028, 8, 16), mat);
+            ring.position.y = 0.12;
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.28, 8), mat);
+            shaft.position.y = -0.05;
+            group.add(ring, shaft);
+          } else {
+            const cyl = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.075, 0.075, 0.25, 12),
+              new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x15803d, emissiveIntensity: 0.85 })
+            );
+            group.add(cyl);
+          }
+          group.add(new THREE.PointLight(type === 'KEY' ? 0xfbbf24 : 0x22c55e, 1.35, 5.5));
+          this.scene.add(group);
+          this.pickups.push({ mesh: group, pos: new THREE.Vector3(x, 1.05, z), type, collected: false });
+        }
+
+        addBearTrap(x, z) {
+          const group = new THREE.Group();
+          group.position.set(x, 0.04, z);
+          const mat = new THREE.MeshStandardMaterial({ color: 0x6b1c1c, metalness: 0.85, roughness: 0.35 });
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 8, 18), mat);
+          ring.rotation.x = Math.PI / 2;
+          const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.03, 12), mat);
+          group.add(ring, plate);
+          this.scene.add(group);
+          this.bearTraps.push({ group, pos: new THREE.Vector3(x, 0.04, z), sprung: false });
+        }
+
+        buildJasonCell() {
+          const barMat = new THREE.MeshStandardMaterial({ color: 0x3f3f46, metalness: 0.85, roughness: 0.35 });
+          for (let bx = 18.2; bx <= 29.2; bx += 0.55) {
+            if (bx > 22.8 && bx < 24.6) continue;
+            this.addBox(bx, 1.9, -22.5, 0.09, 3.8, 0.09, barMat, true);
+          }
+          this.cellDoorPivot = new THREE.Group();
+          this.cellDoorPivot.position.set(22.85, 0, -22.5);
+          for (let dbx = 0.25; dbx <= 1.55; dbx += 0.42) {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(0.09, 3.6, 0.09), barMat);
+            b.position.set(dbx, 1.8, 0);
+            this.cellDoorPivot.add(b);
+          }
+          const lockBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.34, 0.18), new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.8 }));
+          lockBox.position.set(1.5, 1.35, 0.08);
+          this.cellDoorPivot.add(lockBox);
+          this.scene.add(this.cellDoorPivot);
+
+          this.cellCollider = { minX: 22.8, maxX: 24.7, minZ: -22.8, maxZ: -22.2, active: true };
+          this.colliders.push(this.cellCollider);
+          this.cellDoorPos = new THREE.Vector3(23.7, 1.7, -22.2);
+
+          const jason = new THREE.Group();
+          jason.position.set(24.5, 0, -26.5);
+          const shirt = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.85 });
+          const skin = new THREE.MeshStandardMaterial({ color: 0xe6c8b8, roughness: 0.7 });
+          const torso = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.65, 0.28), shirt);
+          torso.position.y = 0.45;
+          torso.rotation.x = 0.22;
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 14, 14), skin);
+          head.position.set(0, 0.92, 0.08);
+          head.rotation.x = 0.35;
+          const bandage = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.09, 14), new THREE.MeshStandardMaterial({ color: 0xfef2f2 }));
+          bandage.position.set(0, 0.98, 0.08);
+          const legs = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.18, 0.75), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+          legs.position.set(0, 0.12, 0.35);
+          jason.add(torso, head, bandage, legs);
+          const cellLight = new THREE.PointLight(0x60a5fa, 1.5, 8);
+          cellLight.position.set(24.5, 2.8, -25.5);
+          this.scene.add(jason, cellLight);
+        }
+
+        buildFurnishedMansion() {
+          const wallMat = new THREE.MeshStandardMaterial({
+            map: this.textures.wallTex, bumpMap: this.textures.wallBumpTex, bumpScale: 0.035, roughness: 0.82
+          });
+          const floorMat = new THREE.MeshStandardMaterial({
+            map: this.textures.floorTex, bumpMap: this.textures.floorBumpTex, bumpScale: 0.04, roughness: 0.72
+          });
+
+          const floor = new THREE.Mesh(new THREE.PlaneGeometry(62, 62), floorMat);
+          floor.rotation.x = -Math.PI / 2;
+          floor.receiveShadow = true;
+          this.scene.add(floor);
+
+          const ceil = new THREE.Mesh(new THREE.PlaneGeometry(62, 62), new THREE.MeshStandardMaterial({ color: 0x16100d, roughness: 0.95 }));
+          ceil.rotation.x = Math.PI / 2;
+          ceil.position.y = 4.0;
+          this.scene.add(ceil);
+
+          this.rooms = [
+            { name: 'QUARTO DO HÓSPEDE', minX: -29.5, maxX: -19.0, minZ: 20.0, maxZ: 29.5 },
+            { name: 'SALA DE ESTAR (VASO QUEBRADO)', minX: -29.5, maxX: -7.0, minZ: 10.0, maxZ: 20.0 },
+            { name: 'SALA DE JANTAR', minX: -29.5, maxX: -7.0, minZ: -6.0, maxZ: 10.0 },
+            { name: 'BIBLIOTECA DA MANSÃO', minX: -29.5, maxX: -7.0, minZ: -29.5, maxZ: -6.0 },
+            { name: 'HALL DE ENTRADA', minX: -7.0, maxX: 7.0, minZ: 10.0, maxZ: 29.5 },
+            { name: 'GALERIA DOS RETRATOS', minX: -7.0, maxX: 7.0, minZ: -10.0, maxZ: 10.0 },
+            { name: 'CORREDOR NORTE', minX: -7.0, maxX: 7.0, minZ: -29.5, maxZ: -10.0 },
+            { name: 'QUARTO DO CASAL', minX: 7.0, maxX: 29.5, minZ: 10.0, maxZ: 29.5 },
+            { name: 'COZINHA & DESPENSA', minX: 7.0, maxX: 29.5, minZ: -6.0, maxZ: 10.0 },
+            { name: 'PORÃO — CELA DO JASON', minX: 7.0, maxX: 29.5, minZ: -29.5, maxZ: -6.0 }
+          ];
+
+          this.addBox(0, 2, -30, 60, 4, 0.7, wallMat);
+          this.addBox(0, 2, 30, 60, 4, 0.7, wallMat);
+          this.addBox(-30, 2, 0, 0.7, 4, 60, wallMat);
+          this.addBox(30, 2, 0, 0.7, 4, 60, wallMat);
+
+          this.addBox(-7, 2, 23.5, 0.5, 4, 13, wallMat);
+          this.addBox(-7, 2, 8.0, 0.5, 4, 14, wallMat);
+          this.addBox(-7, 2, -10.0, 0.5, 4, 18, wallMat);
+          this.addBox(-7, 2, -25.5, 0.5, 4, 9, wallMat);
+
+          this.addBox(7, 2, 25.5, 0.5, 4, 9, wallMat);
+          this.addBox(7, 2, 10.0, 0.5, 4, 18, wallMat);
+          this.addBox(7, 2, -10.0, 0.5, 4, 18, wallMat);
+          this.addBox(7, 2, -25.5, 0.5, 4, 9, wallMat);
+
+          this.addBox(-24.5, 2, 20, 11, 4, 0.5, wallMat);
+          this.addBox(-19, 2, 27.5, 0.5, 4, 5, wallMat);
+          this.addBox(-19, 2, 21.5, 0.5, 4, 3, wallMat);
+          this.addDoor(-19, 23.05, Math.PI / 2);
+
+          this.addBox(-22.5, 2, 10, 15, 4, 0.5, wallMat);
+          this.addBox(-10, 2, 10, 6, 4, 0.5, wallMat);
+          this.addBox(-22.5, 2, -6, 15, 4, 0.5, wallMat);
+          this.addBox(-10, 2, -6, 6, 4, 0.5, wallMat);
+
+          this.addBox(10, 2, 10, 6, 4, 0.5, wallMat);
+          this.addBox(22.5, 2, 10, 15, 4, 0.5, wallMat);
+          this.addBox(10, 2, -6, 6, 4, 0.5, wallMat);
+          this.addBox(22.5, 2, -6, 15, 4, 0.5, wallMat);
+
+          this.addDoor(-7, 15.05, Math.PI / 2);
+          this.addDoor(-7, -0.95, Math.PI / 2);
+          this.addDoor(-7, -20.95, Math.PI / 2);
+          this.addDoor(7, 20.95, -Math.PI / 2);
+          this.addDoor(7, 0.95, -Math.PI / 2);
+          this.addDoor(7, -19.05, -Math.PI / 2);
+
+          const woodMat = new THREE.MeshStandardMaterial({ color: 0x3b1e10, roughness: 0.7 });
+          const counterMat = new THREE.MeshStandardMaterial({ color: 0x44403c, roughness: 0.58 });
+          const topMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.45 });
+
+          // 1. Guest Bedroom
+          this.addRug(-24.5, 25.0, 5.5, 5.5, 0x451a1a);
+          this.addBed(-27.2, 25.0, Math.PI / 2);
+          this.addDresser(-26.8, 28.8, Math.PI);
+          this.addWardrobe(-23.0, 28.8, Math.PI);
+          this.addCurtainWindow(-29.58, 2.1, 25.0, Math.PI / 2);
+
+          // 2. Parlor / Living Room
+          this.addRug(-18.0, 15.0, 9.0, 6.5, 0x5c1111);
+          this.addSofa(-24.5, 15.0, Math.PI / 2);
+          this.addSofa(-18.0, 18.2, Math.PI);
+          this.addBox(-18.5, 0.36, 15.0, 1.85, 0.72, 1.12, woodMat);
+          this.addBox(-18.5, 0.73, 15.0, 1.92, 0.05, 1.2, new THREE.MeshStandardMaterial({ color: 0x5c2e16, roughness: 0.6 }));
+          for (let g = 0; g < 9; g++) {
+            const shard = new THREE.Mesh(
+              new THREE.ConeGeometry(0.12, 0.22, 4),
+              new THREE.MeshStandardMaterial({ color: 0xbae6fd, roughness: 0.15, metalness: 0.4 })
+            );
+            shard.position.set(-16.5 + (Math.random() - 0.5) * 1.4, 0.06, 14.5 + (Math.random() - 0.5) * 1.4);
+            shard.rotation.set(Math.PI / 2, Math.random() * 3, 0);
+            this.scene.add(shard);
+          }
+          this.addWardrobe(-28.6, 12.2, Math.PI / 2);
+          this.addCurtainWindow(-29.58, 2.1, 15.5, Math.PI / 2);
+
+          // 3. Dining Room
+          this.addRug(-18.0, 2.0, 8.5, 8.0, 0x3f1d1d);
+          this.addDiningSet(-18.0, 2.0);
+          this.addDresser(-28.6, 2.0, Math.PI / 2);
+          this.addCurtainWindow(-29.58, 2.1, 5.5, Math.PI / 2);
+
+          // 4. Library
+          this.addRug(-18.0, -18.0, 9.5, 9.5, 0x291d3a);
+          this.addBookshelf(-28.8, -12.0, Math.PI / 2);
+          this.addBookshelf(-28.8, -18.0, Math.PI / 2);
+          this.addBookshelf(-28.8, -24.0, Math.PI / 2);
+          this.addBookshelf(-18.0, -28.8, 0);
+          this.addBox(-17.0, 0.44, -17.5, 2.4, 0.88, 1.2, woodMat);
+          this.addBox(-17.0, 0.9, -17.5, 2.52, 0.06, 1.3, new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.85 }));
+          this.addTableLamp(-16.1, 0.93, -17.9);
+
+          // 5. Entrance Hall & Gallery Corridor
+          this.addRug(0, 20.0, 4.5, 14.0, 0x6b1111);
+          this.addRug(0, 0.0, 4.0, 16.0, 0x451a1a);
+          this.addCurtainWindow(0, 2.1, 29.58, Math.PI);
+
+          // 6. Master Bedroom
+          this.addRug(18.5, 20.0, 9.0, 9.0, 0x5c1111);
+          this.addBed(26.5, 20.0, -Math.PI / 2);
+          this.addDresser(26.5, 23.2, -Math.PI / 2);
+          this.addSofa(16.0, 26.5, Math.PI);
+          this.addWardrobe(28.6, 13.5, -Math.PI / 2);
+          this.addCurtainWindow(29.58, 2.1, 20.0, -Math.PI / 2);
+
+          // 7. Kitchen
+          this.addBox(27.5, 0.48, 2.0, 1.6, 0.96, 9.0, counterMat);
+          this.addBox(27.5, 0.98, 2.0, 1.72, 0.06, 9.12, topMat);
+          this.addBox(18.0, 0.48, 2.0, 2.2, 0.96, 3.4, woodMat);
+          this.addBox(18.0, 0.98, 2.0, 2.34, 0.06, 3.54, topMat);
+
+          // 8. Basement & Jason's Cell
+          this.addWardrobe(28.6, -12.0, -Math.PI / 2);
+          this.buildJasonCell();
+
+          // Framed Past Portraits on Walls
+          this.addPainting(-6.68, 2.0, 18.5, -Math.PI / 2, 'WEDDING', 'Retrato de Casamento: "Lordaine & Jason — Unidos para sempre."');
+          this.addPainting(6.68, 2.0, 4.5, Math.PI / 2, 'VASE', 'Pintura do Vaso de Cristal: O mesmo vaso que está estilhaçado na Sala de Estar...');
+          this.addPainting(-6.68, 2.0, -4.5, -Math.PI / 2, 'MADNESS', 'Retrato Rasgado de Lordaine: Os olhos foram riscados com tinta vermelha.');
+          this.addPainting(22.0, 2.0, 29.55, Math.PI, 'WEDDING', 'Foto na Parede do Quarto: Jason e Lordaine sorrindo antes da tragédia.');
+
+          [[-24, 25], [0, 22], [0, 4], [0, -18], [-16, 15], [-18, 2], [-18, -18], [18, 20], [18, 2], [16, -15]].forEach(([lx, lz]) => {
+            this.addSconceLight(lx, lz);
+          });
+
+          // 5 Keys & Spare Batteries
+          this.addPickup(-12.5, 13.0, 'KEY');
+          this.addPickup(-25.5, -25.5, 'KEY');
+          this.addPickup(25.5, 25.5, 'KEY');
+          this.addPickup(24.5, 2.0, 'KEY');
+          this.addPickup(-24.5, 2.0, 'KEY');
+
+          this.addPickup(-21.0, 21.5, 'BATTERY');
+          this.addPickup(-14.5, 2.5, 'BATTERY');
+          this.addPickup(14.5, -15.0, 'BATTERY');
+
+          // 7 Steel Bear Traps
+          [
+            [-13.8, 10.4],
+            [1.6, 9.0],
+            [13.8, 10.4],
+            [-14.2, -5.6],
+            [14.2, -5.6],
+            [-1.6, -14.0],
+            [15.5, -18.5]
+          ].forEach(([tx, tz]) => this.addBearTrap(tx, tz));
+
+          // Dijkstra Room-and-Doorway Navigation Graph
+          this.navNodes = [
+            { id: 0, x: 0, z: 21 }, { id: 1, x: 0, z: 16 }, { id: 2, x: 0, z: 0 }, { id: 3, x: 0, z: -20 },
+            { id: 4, x: -7, z: 16 }, { id: 5, x: -13.5, z: 11.2 }, { id: 6, x: -19, z: 24 }, { id: 7, x: -24.5, z: 24 },
+            { id: 8, x: -7, z: 0 }, { id: 9, x: -14.5, z: 2 },
+            { id: 10, x: -7, z: -20 }, { id: 11, x: -15.5, z: -18 },
+            { id: 12, x: 7, z: 20 }, { id: 13, x: 16, z: 16 },
+            { id: 14, x: 7, z: 0 }, { id: 15, x: 15.5, z: 2 },
+            { id: 16, x: 7, z: -20 }, { id: 17, x: 16, z: -18 }, { id: 18, x: 23.5, z: -19.5 }
+          ];
+          const edges = [
+            [0, 1], [1, 2], [2, 3],
+            [1, 4], [4, 5], [5, 6], [6, 7],
+            [2, 8], [8, 9],
+            [3, 10], [10, 11],
+            [0, 12], [1, 12], [12, 13],
+            [2, 14], [14, 15],
+            [3, 16], [16, 17], [17, 18]
+          ];
+          this.navAdj = Array.from({ length: this.navNodes.length }, () => []);
+          for (const [a, b] of edges) {
+            const d = Math.hypot(this.navNodes[b].x - this.navNodes[a].x, this.navNodes[b].z - this.navNodes[a].z);
+            this.navAdj[a].push({ to: b, cost: d });
+            this.navAdj[b].push({ to: a, cost: d });
+          }
+          this.patrolSeq = [13, 12, 0, 2, 5, 9, 11, 3, 17];
+        }
+
+        createLordaine() {
+          this.lordaineRig = new ArticulatedLordaineRig(this.scene);
+          this.lordaineGroup = this.lordaineRig.root;
+          this.lordaineGroup.position.set(16, 0, 16);
+          this.lordaine = {
+            pos: this.lordaineGroup.position,
+            radius: 0.42,
+            facingYaw: 0,
+            baseSpeed: 2.55,
+            speed: 2.55,
+            aggression: 0,
+            graceTimer: 15.0,
+            stepTimer: 0,
+            patrolIdx: 0,
+            path: [],
+            recalcTimer: 0,
+            doorPause: 0,
+            chaseTimer: 0,
+            alertPos: null,
+            alertTimer: 0
+          };
+        }
+
+        createCameraScareRig() {
+          this.scareRig = new THREE.Group();
+          this.scareRig.visible = false;
+          this.scareLight = new THREE.PointLight(0xff1e1e, 0, 5);
+          this.scareLight.position.set(0, 0.05, 0.35);
+          this.scareRig.add(this.scareLight);
+
+          const faceMat = new THREE.MeshStandardMaterial({ color: 0xe6dede, emissive: 0x3b0707, emissiveIntensity: 0.55 });
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 18, 18), faceMat);
+          head.scale.set(0.92, 1.24, 0.95);
+          this.scareRig.add(head);
+
+          const socketMat = new THREE.MeshBasicMaterial({ color: 0x050000 });
+          const pupilMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+          [-0.07, 0.07].forEach((ex) => {
+            const s = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 10), socketMat);
+            s.position.set(ex, 0.04, 0.175);
+            const p = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), pupilMat);
+            p.position.set(ex, 0.04, 0.205);
+            this.scareRig.add(s, p);
+          });
+
+          const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 12), socketMat);
+          mouth.position.set(0, -0.1, 0.175);
+          mouth.scale.set(0.85, 1.38, 0.5);
+          this.scareRig.add(mouth);
+
+          const hair = new THREE.Mesh(new THREE.SphereGeometry(0.225, 14, 14), new THREE.MeshStandardMaterial({ color: 0x050405 }));
+          hair.position.set(0, 0.04, -0.03);
+          this.scareRig.add(hair);
+
+          this.scene.add(this.scareRig);
+        }
+
+        createDust() {
+          const count = 480;
+          const pos = new Float32Array(count * 3);
+          for (let i = 0; i < count; i++) {
+            pos[i * 3] = (Math.random() - 0.5) * 56;
+            pos[i * 3 + 1] = 0.2 + Math.random() * 3.6;
+            pos[i * 3 + 2] = (Math.random() - 0.5) * 56;
+          }
+          const geo = new THREE.BufferGeometry();
+          geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+          this.scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xa8a29e, size: 0.045, transparent: true, opacity: 0.34 })));
+        }
+
+        // =========================================================================
+        // RESPONSIVE EVENTS & INSTANT START BINDINGS
+        // =========================================================================
+        bindInstantAction(el, fn) {
+          if (!el) return;
+          let handled = false;
+          const trigger = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            if (handled) return;
+            handled = true;
+            fn();
+            setTimeout(() => { handled = false; }, 300);
+          };
+          el.addEventListener('pointerdown', trigger, { passive: false });
+          el.addEventListener('touchstart', trigger, { passive: false });
+          el.addEventListener('click', trigger);
+        }
+
+        requestPointerLockSafe() {
+          try {
+            if (!this.touchEnabled && this.renderer.domElement.requestPointerLock) {
+              const p = this.renderer.domElement.requestPointerLock();
+              if (p && p.catch) p.catch(() => {});
+            }
+          } catch (e) {}
+        }
+
+        exitPointerLockSafe() {
+          try {
+            if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
+          } catch (e) {}
+        }
+
+        bindEvents() {
+          this.bindInstantAction(document.getElementById('start-btn'), () => this.startStorySequence());
+          this.bindInstantAction(document.getElementById('direct-play-btn'), () => this.beginMansionGameplay());
+          this.bindInstantAction(document.getElementById('skip-story-btn'), () => this.storyPlayer.stop());
+          this.bindInstantAction(document.getElementById('retry-btn'), () => this.beginMansionGameplay());
+          this.bindInstantAction(document.getElementById('win-retry-btn'), () => this.beginMansionGameplay());
+
+          this.bindInstantAction(document.getElementById('toggle-touch-btn'), () => {
+            this.touchEnabled = !this.touchEnabled;
+            if (this.touchEnabled) this.exitPointerLockSafe();
+            else if (this.state === 'PLAYING') this.requestPointerLockSafe();
+            this.updateTouchUI();
+          });
+
+          this.bindInstantAction(document.getElementById('fullscreen-btn'), async () => {
+            try {
+              if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+                await document.documentElement.requestFullscreen();
+              } else if (document.fullscreenElement && document.exitFullscreen) {
+                await document.exitFullscreen();
+              }
+              if (screen.orientation && screen.orientation.lock) {
+                await screen.orientation.lock('landscape').catch(() => {});
+              }
+            } catch (e) {}
+            this.handleResize();
+          });
+
+          let dragging = false, lx = 0, ly = 0;
+          this.renderer.domElement.addEventListener('mousedown', (e) => {
+            if (this.state !== 'PLAYING' || this.touchEnabled) return;
+            dragging = true; lx = e.clientX; ly = e.clientY;
+            this.requestPointerLockSafe();
+          });
+          window.addEventListener('mouseup', () => { dragging = false; });
+          window.addEventListener('mousemove', (e) => {
+            if (this.state !== 'PLAYING' || this.touchEnabled) return;
+            if (document.pointerLockElement === this.renderer.domElement) {
+              this.player.yaw -= e.movementX * 0.0022;
+              this.player.pitch = Math.max(-1.35, Math.min(1.35, this.player.pitch - e.movementY * 0.0022));
+            } else if (dragging) {
+              this.player.yaw -= (e.clientX - lx) * 0.004;
+              this.player.pitch = Math.max(-1.35, Math.min(1.35, this.player.pitch - (e.clientY - ly) * 0.0035));
+              lx = e.clientX; ly = e.clientY;
+            }
+          });
+
+          window.addEventListener('keydown', (e) => {
+            this.keysDown[e.code] = true;
+            if (this.state === 'PLAYING') {
+              if (e.code === 'KeyF') this.toggleFlashlight();
+              if (e.code === 'KeyE') this.interact();
+              if (e.code === 'KeyR') this.reloadBattery();
+            } else if (this.state === 'STORY' && (e.code === 'Space' || e.code === 'Escape' || e.code === 'Enter')) {
+              this.storyPlayer.stop();
+            }
+          });
+          window.addEventListener('keyup', (e) => { this.keysDown[e.code] = false; });
+
+          window.addEventListener('resize', () => this.handleResize());
+          window.addEventListener('orientationchange', () => setTimeout(() => this.handleResize(), 120));
+
+          this.setupTouchControls();
+        }
+
+        handleResize() {
+          const w = window.innerWidth;
+          const h = window.innerHeight;
+          this.camera.aspect = w / h;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(w, h);
+          this.vfxCanvas.width = w;
+          this.vfxCanvas.height = h;
+          if (this.state === 'STORY') this.storyPlayer.resize();
+          if (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)) {
+            this.touchEnabled = true;
+            this.updateTouchUI();
+          }
+        }
+
+        updateTouchUI() {
+          const mc = document.getElementById('mobile-controls');
+          const btn = document.getElementById('toggle-touch-btn');
+          if (this.state === 'PLAYING' && this.touchEnabled) {
+            mc.style.display = 'block';
+            btn.textContent = 'TOUCH: ON';
+          } else {
+            mc.style.display = 'none';
+            btn.textContent = this.touchEnabled ? 'TOUCH: ON' : 'TOUCH: OFF';
+          }
+        }
+
+        setupTouchControls() {
+          const joyZone = document.getElementById('joystick-zone');
+          const joyStick = document.getElementById('joystick-stick');
+          const lookZone = document.getElementById('look-zone');
+          let joyId = null, lookId = null, lastX = 0, lastY = 0;
+
+          const moveJoy = (t) => {
+            const r = joyZone.getBoundingClientRect();
+            const maxR = r.width * 0.34;
+            let dx = t.clientX - (r.left + r.width / 2);
+            let dy = t.clientY - (r.top + r.height / 2);
+            const d = Math.hypot(dx, dy);
+            if (d > maxR) { dx = (dx / d) * maxR; dy = (dy / d) * maxR; }
+            joyStick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            this.joyVec.x = dx / maxR;
+            this.joyVec.y = dy / maxR;
+          };
+
+          joyZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (joyId !== null) return;
+            joyId = e.changedTouches[0].identifier;
+            moveJoy(e.changedTouches[0]);
+          }, { passive: false });
+
+          joyZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for (const t of e.changedTouches) if (t.identifier === joyId) moveJoy(t);
+          }, { passive: false });
+
+          const endJoy = (e) => {
+            for (const t of e.changedTouches) {
+              if (t.identifier === joyId) {
+                joyId = null;
+                joyStick.style.transform = 'translate(-50%, -50%)';
+                this.joyVec.x = 0; this.joyVec.y = 0;
+              }
+            }
+          };
+          joyZone.addEventListener('touchend', endJoy);
+          joyZone.addEventListener('touchcancel', endJoy);
+
+          lookZone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (lookId !== null) return;
+            lookId = e.changedTouches[0].identifier;
+            lastX = e.changedTouches[0].clientX;
+            lastY = e.changedTouches[0].clientY;
+          }, { passive: false });
+
+          lookZone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for (const t of e.changedTouches) {
+              if (t.identifier === lookId) {
+                this.player.yaw -= (t.clientX - lastX) * 0.0052;
+                this.player.pitch = Math.max(-1.35, Math.min(1.35, this.player.pitch - (t.clientY - lastY) * 0.0044));
+                lastX = t.clientX; lastY = t.clientY;
+              }
+            }
+          }, { passive: false });
+
+          const endLook = (e) => {
+            for (const t of e.changedTouches) if (t.identifier === lookId) lookId = null;
+          };
+          lookZone.addEventListener('touchend', endLook);
+          lookZone.addEventListener('touchcancel', endLook);
+
+          const spBtn = document.getElementById('btn-touch-sprint');
+          spBtn.addEventListener('touchstart', (e) => { e.preventDefault(); this.mobileSprint = true; spBtn.classList.add('active'); }, { passive: false });
+          const stopSp = () => { this.mobileSprint = false; spBtn.classList.remove('active'); };
+          spBtn.addEventListener('touchend', stopSp);
+          spBtn.addEventListener('touchcancel', stopSp);
+
+          this.bindInstantAction(document.getElementById('btn-touch-use'), () => { if (this.state === 'PLAYING') this.interact(); });
+          this.bindInstantAction(document.getElementById('btn-touch-light'), () => { if (this.state === 'PLAYING') this.toggleFlashlight(); });
+          this.bindInstantAction(document.getElementById('btn-touch-battery'), () => { if (this.state === 'PLAYING') this.reloadBattery(); });
+        }
+
+        // =========================================================================
+        // STORY CUTSCENE & GAME FLOW
+        // =========================================================================
+        startStorySequence() {
+          try { this.audio.init(); } catch (e) {}
+          document.getElementById('start-screen').classList.add('hidden');
+          document.getElementById('story-screen').classList.remove('hidden');
+          this.state = 'STORY';
+          this.storyPlayer.start();
+        }
+
+        beginMansionGameplay() {
+          document.getElementById('start-screen').classList.add('hidden');
+          document.getElementById('story-screen').classList.add('hidden');
+          document.getElementById('death-screen').classList.add('hidden');
+          document.getElementById('win-screen').classList.add('hidden');
+          document.getElementById('mobile-controls').style.display = 'none';
+
+          this.state = 'WAKING_UP';
+          this.wakeTimer = 0;
+          try { this.audio.init(); } catch (e) {}
+
+          this.player.pos.set(-25.5, 1.7, 25.0);
+          this.player.vel.set(0, 0, 0);
+          this.player.yaw = -Math.PI / 2;
+          this.player.pitch = 0;
+          this.player.roll = 0;
+          this.player.stamina = 100;
+          this.player.sanity = 100;
+          this.player.battery = 100;
+          this.player.spareBatteries = 1;
+          this.player.flashlightOn = true;
+          this.player.keys = 0;
+          this.player.trappedCount = 0;
+          this.player.inWardrobe = null;
+
+          this.menuRimLight.intensity = 0;
+          this.menuFillLight.intensity = 0;
+
+          document.getElementById('keys-count').textContent = '0';
+          document.getElementById('basement-door-tracker').style.display = 'none';
+          document.getElementById('spare-bat-txt').textContent = '+1';
+          document.getElementById('blood-overlay').style.opacity = '0';
+          document.getElementById('scare-flash').style.display = 'none';
+          document.getElementById('wardrobe-overlay').style.display = 'none';
+          document.getElementById('trap-prompt').style.display = 'none';
+          document.getElementById('key-banner').style.display = 'none';
+          document.body.classList.remove('sanity-distort');
+
+          this.pickups.forEach((p) => { p.collected = false; p.mesh.visible = true; });
+          this.doors.forEach((d) => { d.isOpen = false; d.targetRot = d.baseRot; d.pivot.rotation.y = d.baseRot; d.collider.active = true; });
+          this.bearTraps.forEach((t) => { t.sprung = false; t.group.scale.set(1, 1, 1); });
+          this.cellCollider.active = true;
+          this.cellDoorPivot.rotation.y = 0;
+
+          this.lordaine.pos.set(16, 0, 16);
+          this.lordaine.speed = this.lordaine.baseSpeed;
+          this.lordaine.aggression = 0;
+          this.lordaine.graceTimer = 15.0;
+          this.lordaine.patrolIdx = 0;
+          this.lordaine.path = [];
+          this.lordaine.chaseTimer = 0;
+          this.lordaine.alertPos = null;
+          this.lordaine.alertTimer = 0;
+
+          document.getElementById('eyelid-top').style.display = 'block';
+          document.getElementById('eyelid-bottom').style.display = 'block';
+          document.getElementById('wake-caption').style.display = 'block';
+        }
+
+        updateWakingUp(dt) {
+          this.wakeTimer += dt;
+          const t = Math.min(1, this.wakeTimer / 2.8);
+          let open = t < 0.3 ? (t / 0.3) * 0.4 : (t < 0.45 ? 0.1 : 0.1 + ((t - 0.45) / 0.55) * 0.9);
+          document.getElementById('eyelid-top').style.transform = `translateY(-${open * 100}%)`;
+          document.getElementById('eyelid-bottom').style.transform = `translateY(${open * 100}%)`;
+
+          this.camera.position.set(this.player.pos.x, 1.1 + Math.sin(t * Math.PI * 0.5) * 0.6, this.player.pos.z);
+          this.camera.rotation.order = 'YXZ';
+          this.camera.rotation.set(-0.22 * (1 - t), this.player.yaw + Math.sin(t * Math.PI * 2) * 0.18, Math.sin(t * Math.PI) * 0.14);
+
+          this.flashlight.position.copy(this.camera.position);
+          const dir = new THREE.Vector3(0, 0, -1).applyEuler(this.camera.rotation);
+          this.flashlightTarget.position.copy(this.camera.position).add(dir.multiplyScalar(9));
+          this.playerAura.position.copy(this.camera.position);
+
+          if (t >= 1) {
+            this.camera.rotation.z = 0;
+            document.getElementById('eyelid-top').style.display = 'none';
+            document.getElementById('eyelid-bottom').style.display = 'none';
+            document.getElementById('wake-caption').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            this.state = 'PLAYING';
+            this.startTime = performance.now();
+            this.updateTouchUI();
+            this.requestPointerLockSafe();
+            this.showToast('Encontre as 5 chaves para revelar a Porta do Porão e salvar Jason!');
+          }
+        }
+
+        triggerNoiseAlert(pos, msg) {
+          this.lordaine.alertPos = pos.clone();
+          this.lordaine.alertTimer = 11.0;
+          this.lordaine.graceTimer = 0;
+          this.lordaine.recalcTimer = 0;
+          const el = document.getElementById('noise-alert');
+          el.textContent = msg;
+          el.style.display = 'block';
+          clearTimeout(this.noiseTO);
+          this.noiseTO = setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        showKeySpeedBanner(count) {
+          const el = document.getElementById('key-banner');
+          el.textContent = count >= 5
+            ? '5/5 CHAVES COLETADAS! LOCALIZAÇÃO DA PORTA DO PORÃO REVELADA — LORDAINE ESTÁ MAIS RÁPIDA!'
+            : `CHAVE ENCONTRADA (${count}/5) — LORDAINE ESTÁ MAIS RÁPIDA!`;
+          el.style.display = 'block';
+          clearTimeout(this.keyBannerTO);
+          this.keyBannerTO = setTimeout(() => { el.style.display = 'none'; }, 4400);
+        }
+
+        updateBasementDoorTracker() {
+          const tracker = document.getElementById('basement-door-tracker');
+          if (this.player.keys < 5) {
+            tracker.style.display = 'none';
+            return;
+          }
+          tracker.style.display = 'block';
+          const dx = this.cellDoorPos.x - this.player.pos.x;
+          const dz = this.cellDoorPos.z - this.player.pos.z;
+          const dist = Math.round(Math.hypot(dx, dz));
+
+          const worldAngleToDoor = Math.atan2(-dx, -dz);
+          let rel = worldAngleToDoor - this.player.yaw;
+          while (rel > Math.PI) rel -= Math.PI * 2;
+          while (rel < -Math.PI) rel += Math.PI * 2;
+
+          let dirLabel = 'À FRENTE ↑';
+          if (Math.abs(rel) > 2.35) dirLabel = 'ATRÁS ↓';
+          else if (rel > 0.38) dirLabel = 'ESQUERDA ←';
+          else if (rel < -0.38) dirLabel = 'DIREITA →';
+
+          document.getElementById('basement-dir').textContent = dirLabel;
+          document.getElementById('basement-dist').textContent = String(dist);
+        }
+
+        showToast(msg) {
+          const el = document.getElementById('toast-msg');
+          el.textContent = msg;
+          el.style.display = 'block';
+          clearTimeout(this.toastTO);
+          this.toastTO = setTimeout(() => { el.style.display = 'none'; }, 3800);
+        }
+
+        toggleFlashlight() {
+          if (this.player.inWardrobe) return;
+          if (this.player.battery <= 0) {
+            this.showToast('Bateria esgotada! Pressione [R] ou PILHA.');
+            return;
+          }
+          this.player.flashlightOn = !this.player.flashlightOn;
+          this.audio.playPickup(false);
+        }
+
+        reloadBattery() {
+          if (this.player.spareBatteries <= 0) {
+            this.showToast('Sem pilhas reservas!');
+            return;
+          }
+          if (this.player.battery > 85) {
+            this.showToast('Bateria quase cheia.');
+            return;
+          }
+          this.player.spareBatteries--;
+          this.player.battery = 100;
+          this.player.flashlightOn = true;
+          document.getElementById('spare-bat-txt').textContent = `+${this.player.spareBatteries}`;
+          this.audio.playPickup(false);
+          this.showToast('Pilha recarregada (100%)!');
+        }
+
+        interact() {
+          if (this.player.trappedCount > 0) {
+            this.player.trappedCount--;
+            document.getElementById('trap-left').textContent = this.player.trappedCount;
+            this.audio.playBearTrap();
+            if (this.player.trappedCount <= 0) {
+              document.getElementById('trap-prompt').style.display = 'none';
+              this.showToast('Você abriu a armadilha! Corra!');
+            }
+            return;
+          }
+
+          if (this.player.inWardrobe) {
+            const w = this.player.inWardrobe;
+            this.player.inWardrobe = null;
+            this.player.pos.copy(w.exitPos);
+            document.getElementById('wardrobe-overlay').style.display = 'none';
+            this.audio.playDoor(false);
+            return;
+          }
+
+          const reach = 2.9;
+
+          for (const item of this.pickups) {
+            if (!item.collected && this.player.pos.distanceTo(item.pos) <= reach) {
+              item.collected = true;
+              item.mesh.visible = false;
+              if (item.type === 'KEY') {
+                this.player.keys++;
+                this.audio.playPickup(true);
+                document.getElementById('keys-count').textContent = this.player.keys;
+
+                this.lordaine.aggression++;
+                this.lordaine.speed = this.lordaine.baseSpeed + this.lordaine.aggression * 0.36;
+                this.lordaine.alertPos = this.player.pos.clone();
+                this.lordaine.alertTimer = 6.0;
+                this.lordaine.recalcTimer = 0;
+
+                this.showKeySpeedBanner(this.player.keys);
+                this.updateBasementDoorTracker();
+              } else {
+                this.player.spareBatteries++;
+                document.getElementById('spare-bat-txt').textContent = `+${this.player.spareBatteries}`;
+                this.audio.playPickup(false);
+                this.showToast('Pilha reserva coletada!');
+              }
+              return;
+            }
+          }
+
+          if (this.player.pos.distanceTo(this.cellDoorPos) <= 3.1) {
+            if (this.player.keys >= 5) {
+              this.cellCollider.active = false;
+              this.cellDoorPivot.rotation.y = -Math.PI / 2;
+              this.audio.playDoor(false);
+              this.triggerWin();
+            } else {
+              this.audio.playDoor(true);
+              this.showToast(`Porta do porão trancada! Faltam ${5 - this.player.keys} chaves!`);
+            }
+            return;
+          }
+
+          for (const p of this.paintings) {
+            if (this.player.pos.distanceTo(p.pos) <= 2.7) {
+              this.showToast(p.caption);
+              return;
+            }
+          }
+
+          for (const w of this.wardrobes) {
+            if (this.player.pos.distanceTo(w.interactPos) <= reach) {
+              this.player.inWardrobe = w;
+              this.player.pos.copy(w.pos);
+              this.player.yaw = w.lookYaw;
+              this.player.flashlightOn = false;
+              document.getElementById('wardrobe-overlay').style.display = 'block';
+              this.audio.playDoor(false);
+              this.showToast('Escondido no guarda-roupa. Aperte [E / USAR] para sair.');
+              return;
+            }
+          }
+
+          for (const door of this.doors) {
+            if (this.player.pos.distanceTo(door.center) <= reach) {
+              door.isOpen = !door.isOpen;
+              door.collider.active = !door.isOpen;
+              door.targetRot = door.isOpen ? door.baseRot + Math.PI / 2.1 : door.baseRot;
+              this.audio.playDoor(false);
+              return;
+            }
+          }
+        }
+
+        triggerFatalCapture() {
+          this.audio.init();
+          this.audio.playJumpscare(1.7);
+          this.camScare.active = true;
+          this.camScare.timer = 1.7;
+          this.camScare.reason = 'Lordaine alcançou você antes que pudesse libertar Jason!';
+          this.scareRig.visible = true;
+          this.scareLight.intensity = 6.5;
+          document.getElementById('scare-flash').style.display = 'block';
+          document.getElementById('blood-overlay').style.opacity = '0.96';
+          this.state = 'CAUGHT';
+          this.exitPointerLockSafe();
+          document.getElementById('mobile-controls').style.display = 'none';
+          document.getElementById('trap-prompt').style.display = 'none';
+          document.getElementById('key-banner').style.display = 'none';
+          document.body.classList.remove('sanity-distort');
+        }
+
+        triggerWin() {
+          this.state = 'WIN';
+          this.exitPointerLockSafe();
+          document.getElementById('mobile-controls').style.display = 'none';
+          document.body.classList.remove('sanity-distort');
+          this.audio.playPickup(true);
+          const secs = Math.floor((performance.now() - this.startTime) / 1000);
+          document.getElementById('win-stats').textContent = `Jason Resgatado em ${secs}s • Sanidade Final: ${Math.round(this.player.sanity)}%`;
+          document.getElementById('win-screen').classList.remove('hidden');
+        }
+
+        // =========================================================================
+        // COLLISION, DIJKSTRA DOORWAY PATHFINDING & UPDATE LOOP
+        // =========================================================================
+        resolveCollisions(pos, radius) {
+          for (let iter = 0; iter < 3; iter++) {
+            for (const box of this.colliders) {
+              if (!box.active) continue;
+              const cx = Math.max(box.minX, Math.min(pos.x, box.maxX));
+              const cz = Math.max(box.minZ, Math.min(pos.z, box.maxZ));
+              const dx = pos.x - cx;
+              const dz = pos.z - cz;
+              const dSq = dx * dx + dz * dz;
+              if (dSq < radius * radius) {
+                const d = Math.sqrt(dSq);
+                if (d > 0.0001) {
+                  const ov = radius - d;
+                  pos.x += (dx / d) * ov;
+                  pos.z += (dz / d) * ov;
+                }
+              }
+            }
+          }
+        }
+
+        hasClearSegment(x1, z1, x2, z2, ignoreDoors = false) {
+          const steps = Math.max(8, Math.ceil(Math.hypot(x2 - x1, z2 - z1) * 3));
+          for (let i = 1; i < steps; i++) {
+            const t = i / steps;
+            const px = x1 + (x2 - x1) * t;
+            const pz = z1 + (z2 - z1) * t;
+            for (const box of this.colliders) {
+              if (!box.active) continue;
+              if (ignoreDoors && this.doors.some((d) => d.collider === box)) continue;
+              if (px + 0.28 > box.minX && px - 0.28 < box.maxX && pz + 0.28 > box.minZ && pz - 0.28 < box.maxZ) return false;
+            }
+          }
+          return true;
+        }
+
+        computePath(startPos, goalPos) {
+          if (this.hasClearSegment(startPos.x, startPos.z, goalPos.x, goalPos.z, true)) {
+            return [new THREE.Vector3(goalPos.x, 0, goalPos.z)];
+          }
+          const findNode = (p) => {
+            let bestId = 0, bestD = Infinity;
+            for (const n of this.navNodes) {
+              const d = Math.hypot(n.x - p.x, n.z - p.z);
+              if (d < bestD && this.hasClearSegment(p.x, p.z, n.x, n.z, true)) { bestD = d; bestId = n.id; }
+            }
+            return bestId;
+          };
+          const sId = findNode(startPos), gId = findNode(goalPos);
+          const N = this.navNodes.length;
+          const dist = new Array(N).fill(Infinity);
+          const prev = new Array(N).fill(-1);
+          const vis = new Array(N).fill(false);
+          dist[sId] = 0;
+
+          for (let i = 0; i < N; i++) {
+            let u = -1, best = Infinity;
+            for (let j = 0; j < N; j++) if (!vis[j] && dist[j] < best) { best = dist[j]; u = j; }
+            if (u === -1 || u === gId) break;
+            vis[u] = true;
+            for (const e of this.navAdj[u]) {
+              if (dist[u] + e.cost < dist[e.to]) { dist[e.to] = dist[u] + e.cost; prev[e.to] = u; }
+            }
+          }
+
+          const chain = [];
+          for (let c = gId; c !== -1; c = prev[c]) {
+            chain.unshift(c);
+            if (c === sId) break;
+          }
+          const pts = chain.map((id) => new THREE.Vector3(this.navNodes[id].x, 0, this.navNodes[id].z));
+          if (pts.length >= 2 && Math.hypot(startPos.x - pts[0].x, startPos.z - pts[0].z) < 0.9) pts.shift();
+          pts.push(new THREE.Vector3(goalPos.x, 0, goalPos.z));
+          return pts;
+        }
+
+        updatePlaying(dt) {
+          let fwd = 0, rgt = 0;
+          if (this.player.trappedCount === 0 && !this.player.inWardrobe) {
+            if (this.keysDown['KeyW'] || this.keysDown['ArrowUp']) fwd += 1;
+            if (this.keysDown['KeyS'] || this.keysDown['ArrowDown']) fwd -= 1;
+            if (this.keysDown['KeyD'] || this.keysDown['ArrowRight']) rgt += 1;
+            if (this.keysDown['KeyA'] || this.keysDown['ArrowLeft']) rgt -= 1;
+            if (Math.abs(this.joyVec.y) > 0.08) fwd -= this.joyVec.y;
+            if (Math.abs(this.joyVec.x) > 0.08) rgt += this.joyVec.x;
+          }
+
+          const mag = Math.min(1, Math.hypot(fwd, rgt));
+          const moving = mag > 0.08;
+          const sprinting = moving && (this.keysDown['ShiftLeft'] || this.keysDown['ShiftRight'] || this.mobileSprint) && this.player.stamina > 5;
+
+          this.player.stamina = sprinting
+            ? Math.max(0, this.player.stamina - 25 * dt)
+            : Math.min(100, this.player.stamina + 16 * dt);
+
+          const maxSpd = sprinting ? 5.9 : 3.6;
+          const sinY = Math.sin(this.player.yaw);
+          const cosY = Math.cos(this.player.yaw);
+          let wx = -sinY * fwd + cosY * rgt;
+          let wz = -cosY * fwd - sinY * rgt;
+          const wLen = Math.hypot(wx, wz);
+          if (wLen > 0.001) { wx = (wx / wLen) * maxSpd * mag; wz = (wz / wLen) * maxSpd * mag; }
+          else { wx = 0; wz = 0; }
+
+          const blend = 1 - Math.exp(-(moving ? 14.5 : 11.5) * dt);
+          this.player.vel.x += (wx - this.player.vel.x) * blend;
+          this.player.vel.z += (wz - this.player.vel.z) * blend;
+
+          const spd = Math.hypot(this.player.vel.x, this.player.vel.z);
+          if (spd > 0.02) {
+            for (let s = 0; s < 2; s++) {
+              this.player.pos.x += this.player.vel.x * (dt * 0.5);
+              this.player.pos.z += this.player.vel.z * (dt * 0.5);
+              this.resolveCollisions(this.player.pos, this.player.radius);
+            }
+            this.player.stepTimer -= dt * (spd / 3.2);
+            if (this.player.stepTimer <= 0) {
+              this.player.stepTimer = 0.48;
+              const creak = Math.random() < 0.13;
+              this.audio.playFootstep(sprinting, creak);
+              if ((sprinting || creak) && this.player.pos.distanceTo(this.lordaine.pos) < 23) {
+                this.triggerNoiseAlert(this.player.pos, creak ? '! ASSOALHO RANGEU — LORDAINE OUVIU !' : '! PASSOS CORRENDO — LORDAINE OUVIU !');
+              }
+            }
+          }
+
+          if (!this.player.inWardrobe && this.player.trappedCount === 0) {
+            for (const t of this.bearTraps) {
+              const distXZ = Math.hypot(this.player.pos.x - t.pos.x, this.player.pos.z - t.pos.z);
+              if (!t.sprung && distXZ < 0.85) {
+                t.sprung = true;
+                t.group.scale.set(0.72, 1.6, 0.72);
+                this.player.trappedCount = 4;
+                this.player.vel.set(0, 0, 0);
+                document.getElementById('trap-left').textContent = '4';
+                document.getElementById('trap-prompt').style.display = 'block';
+                this.audio.playBearTrap();
+                this.triggerNoiseAlert(t.pos, '! VOCÊ PISOU NUMA ARMADILHA DE URSO — LORDAINE OUVIU !');
+                break;
+              }
+            }
+          }
+
+          if (this.player.flashlightOn && !this.player.inWardrobe) {
+            this.player.battery = Math.max(0, this.player.battery - 1.25 * dt);
+            if (this.player.battery <= 0) {
+              this.player.flashlightOn = false;
+              this.showToast('Bateria da lanterna acabou!');
+            }
+            const low = this.player.battery < 22 && Math.random() < 0.18;
+            this.flashlight.intensity = low ? 0.4 : 3.9;
+          } else {
+            this.flashlight.intensity = 0;
+          }
+
+          const targetBob = Math.min(1, spd / 3.4);
+          this.player.bobIntensity += (targetBob - this.player.bobIntensity) * Math.min(1, dt * 10);
+          if (spd > 0.1) this.player.bobPhase += dt * (sprinting ? 14.5 : 9.2);
+
+          const bobY = Math.sin(this.player.bobPhase) * 0.05 * this.player.bobIntensity;
+          const bobX = Math.cos(this.player.bobPhase * 0.5) * 0.025 * this.player.bobIntensity;
+          const targetRoll = -rgt * 0.024 + Math.cos(this.player.bobPhase * 0.5) * 0.01 * this.player.bobIntensity;
+          this.player.roll += (targetRoll - this.player.roll) * Math.min(1, dt * 9);
+
+          const targetFov = sprinting ? 78.0 : 70.0;
+          if (Math.abs(this.camera.fov - targetFov) > 0.05) {
+            this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 7);
+            this.camera.updateProjectionMatrix();
+          }
+
+          const rightCam = new THREE.Vector3(Math.cos(this.player.yaw), 0, -Math.sin(this.player.yaw));
+          this.camera.position.set(
+            this.player.pos.x + rightCam.x * bobX,
+            this.player.pos.y + bobY,
+            this.player.pos.z + rightCam.z * bobX
+          );
+          this.camera.rotation.order = 'YXZ';
+          this.camera.rotation.set(this.player.pitch, this.player.yaw, this.player.roll);
+
+          const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(this.camera.rotation);
+          this.flashlight.position.copy(this.camera.position);
+          this.flashlightTarget.position.copy(this.camera.position).add(lookDir.multiplyScalar(9));
+          this.flashlightCone.position.copy(this.camera.position);
+          this.flashlightCone.quaternion.copy(this.camera.quaternion);
+          this.flashlightCone.visible = this.flashlight.intensity > 0.2;
+          this.playerAura.position.copy(this.camera.position);
+
+          const distToLordaine = Math.hypot(this.player.pos.x - this.lordaine.pos.x, this.player.pos.z - this.lordaine.pos.z);
+          if (this.lordaine.graceTimer > 0) {
+            this.lordaine.graceTimer -= dt;
+            this.lordaineRig.update(dt, 'IDLE', 0);
+          } else {
+            const toP = new THREE.Vector3(this.player.pos.x - this.lordaine.pos.x, 0, this.player.pos.z - this.lordaine.pos.z);
+            const dXZ = toP.length();
+            const fwdEnt = new THREE.Vector3(Math.sin(this.lordaine.facingYaw), 0, Math.cos(this.lordaine.facingYaw));
+            const sees = !this.player.inWardrobe &&
+              ((dXZ < 17.5 && fwdEnt.dot(toP.clone().normalize()) > 0.55) || dXZ < 2.4) &&
+              this.hasClearSegment(this.lordaine.pos.x, this.lordaine.pos.z, this.player.pos.x, this.player.pos.z, false);
+
+            if (sees) {
+              if (this.lordaine.chaseTimer <= 0.2) {
+                this.audio.playSpotted();
+                this.triggerNoiseAlert(this.player.pos, '! LORDAINE TE VIU — CORRA !');
+              }
+              this.lordaine.chaseTimer = 6.5;
+              this.lordaine.alertPos = this.player.pos.clone();
+            }
+
+            let goal = null, moveSpd = this.lordaine.speed, anim = 'PATROL';
+            if (this.lordaine.chaseTimer > 0 && !this.player.inWardrobe) {
+              this.lordaine.chaseTimer -= dt;
+              goal = this.player.pos;
+              moveSpd = this.lordaine.speed * 1.38;
+              anim = 'CHASE';
+            } else if (this.lordaine.alertTimer > 0 && this.lordaine.alertPos) {
+              this.lordaine.alertTimer -= dt;
+              goal = this.lordaine.alertPos;
+              moveSpd = this.lordaine.speed * 1.2;
+              anim = 'INVESTIGATE';
+              if (Math.hypot(this.lordaine.pos.x - goal.x, this.lordaine.pos.z - goal.z) < 1.1) this.lordaine.alertTimer = 0;
+            } else {
+              const nid = this.patrolSeq[this.lordaine.patrolIdx];
+              const node = this.navNodes[nid];
+              goal = new THREE.Vector3(node.x, 0, node.z);
+              moveSpd = this.lordaine.speed * 0.88;
+              if (Math.hypot(this.lordaine.pos.x - node.x, this.lordaine.pos.z - node.z) < 1.15) {
+                this.lordaine.patrolIdx = (this.lordaine.patrolIdx + 1) % this.patrolSeq.length;
+                this.lordaine.recalcTimer = 0;
+              }
+            }
+
+            this.lordaine.recalcTimer -= dt;
+            if (goal && (this.lordaine.recalcTimer <= 0 || this.lordaine.path.length === 0)) {
+              this.lordaine.recalcTimer = anim === 'CHASE' ? 0.32 : 0.75;
+              this.lordaine.path = this.computePath(this.lordaine.pos, goal);
+            }
+
+            for (const door of this.doors) {
+              if (!door.isOpen && Math.hypot(this.lordaine.pos.x - door.center.x, this.lordaine.pos.z - door.center.z) < 1.65) {
+                door.isOpen = true;
+                door.collider.active = false;
+                door.targetRot = door.baseRot + Math.PI / 2.1;
+                this.lordaine.doorPause = 0.5;
+                this.audio.playDoor(false);
+              }
+            }
+
+            let actualSpd = 0;
+            if (this.lordaine.doorPause > 0) {
+              this.lordaine.doorPause -= dt;
+              anim = 'IDLE';
+            } else if (this.lordaine.path.length > 0) {
+              let next = this.lordaine.path[0];
+              while (this.lordaine.path.length > 1 && Math.hypot(this.lordaine.pos.x - next.x, this.lordaine.pos.z - next.z) < 0.65) {
+                this.lordaine.path.shift();
+                next = this.lordaine.path[0];
+              }
+              const step = new THREE.Vector3(next.x - this.lordaine.pos.x, 0, next.z - this.lordaine.pos.z);
+              if (step.length() > 0.12) {
+                step.normalize();
+                this.lordaine.pos.addScaledVector(step, moveSpd * dt);
+                this.resolveCollisions(this.lordaine.pos, this.lordaine.radius);
+                actualSpd = moveSpd;
+
+                const desiredYaw = Math.atan2(step.x, step.z);
+                let diff = desiredYaw - this.lordaine.facingYaw;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                this.lordaine.facingYaw += diff * Math.min(1, dt * 10);
+
+                this.lordaine.stepTimer -= dt * (moveSpd / 2.5);
+                if (this.lordaine.stepTimer <= 0) {
+                  this.lordaine.stepTimer = 0.48;
+                  const toE = new THREE.Vector3().subVectors(this.lordaine.pos, this.player.pos).normalize();
+                  this.audio.playSpatialStep(distToLordaine, rightCam.dot(toE));
+                }
+              }
+            }
+
+            this.lordaineGroup.rotation.y = this.lordaine.facingYaw;
+            this.lordaineRig.update(dt, anim, actualSpd);
+          }
+
+          const updatedDistXZ = Math.hypot(this.player.pos.x - this.lordaine.pos.x, this.player.pos.z - this.lordaine.pos.z);
+          if (!this.player.inWardrobe && updatedDistXZ < 1.85 &&
+              this.hasClearSegment(this.lordaine.pos.x, this.lordaine.pos.z, this.player.pos.x, this.player.pos.z, false)) {
+            this.triggerFatalCapture();
+            return;
+          }
+
+          const danger = Math.max(0, 1 - updatedDistXZ / 17.5);
+          const inDark = !this.player.flashlightOn && !this.player.inWardrobe;
+          if (inDark || danger > 0.2) {
+            this.player.sanity = Math.max(0, this.player.sanity - (inDark ? 2.2 : 0) * dt - danger * 8.0 * dt);
+          } else {
+            this.player.sanity = Math.min(100, this.player.sanity + 1.6 * dt);
+          }
+
+          this.audio.setTension(danger);
+          if (danger > 0.22 || this.player.sanity < 38) {
+            document.body.classList.add('sanity-distort');
+            this.player.heartTimer -= dt * (1 + danger * 1.7);
+            if (this.player.heartTimer <= 0) {
+              this.player.heartTimer = 0.82;
+              this.audio.playHeartbeat(Math.max(0.45, danger));
+            }
+          } else {
+            document.body.classList.remove('sanity-distort');
+          }
+
+          for (const r of this.rooms) {
+            if (this.player.pos.x >= r.minX && this.player.pos.x <= r.maxX && this.player.pos.z >= r.minZ && this.player.pos.z <= r.maxZ) {
+              document.getElementById('room-badge').textContent = r.name;
+              break;
+            }
+          }
+
+          this.updateBasementDoorTracker();
+
+          let prompt = '';
+          if (this.player.inWardrobe) prompt = '[E / USAR] Sair do Guarda-Roupa';
+          else {
+            for (const it of this.pickups) {
+              if (!it.collected && this.player.pos.distanceTo(it.pos) <= 2.9) {
+                prompt = it.type === 'KEY' ? '[E / USAR] Pegar Chave' : '[E / USAR] Pegar Pilha';
+                break;
+              }
+            }
+            if (!prompt && this.player.pos.distanceTo(this.cellDoorPos) <= 3.1) {
+              prompt = this.player.keys >= 5 ? '[E / USAR] Abrir Porta do Porão e Salvar Jason!' : `Porta do Porão Trancada (${this.player.keys}/5 Chaves)`;
+            }
+            if (!prompt) {
+              for (const p of this.paintings) {
+                if (this.player.pos.distanceTo(p.pos) <= 2.7) { prompt = '[E / USAR] Examinar Quadro'; break; }
+              }
+            }
+            if (!prompt) {
+              for (const w of this.wardrobes) {
+                if (this.player.pos.distanceTo(w.interactPos) <= 2.9) { prompt = '[E / USAR] Esconder no Guarda-Roupa'; break; }
+              }
+            }
+            if (!prompt) {
+              for (const d of this.doors) {
+                if (this.player.pos.distanceTo(d.center) <= 2.9) { prompt = d.isOpen ? '[E / USAR] Fechar Porta' : '[E / USAR] Abrir Porta'; break; }
+              }
+            }
+          }
+
+          const pEl = document.getElementById('interact-prompt');
+          if (prompt && this.player.trappedCount === 0) { pEl.textContent = prompt; pEl.style.display = 'block'; }
+          else pEl.style.display = 'none';
+
+          document.getElementById('bar-stamina').style.width = `${this.player.stamina}%`;
+          document.getElementById('bar-sanity').style.width = `${this.player.sanity}%`;
+          document.getElementById('bar-battery').style.width = `${this.player.battery}%`;
+        }
+
+        renderVFX() {
+          const ctx = this.vfxCtx;
+          const W = this.vfxCanvas.width;
+          const H = this.vfxCanvas.height;
+          ctx.clearRect(0, 0, W, H);
+          if (this.state !== 'PLAYING' && this.state !== 'CAUGHT') return;
+
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+          for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+
+          if (this.player.trappedCount > 0) {
+            ctx.strokeStyle = 'rgba(220, 38, 38, 0.65)';
+            ctx.lineWidth = 14;
+            ctx.strokeRect(0, 0, W, H);
+          }
+        }
+
+        animate() {
+          requestAnimationFrame(this.animate);
+          const dt = Math.min(this.clock.getDelta(), 0.05);
+          const elapsed = performance.now() * 0.001;
+
+          for (const d of this.doors) d.pivot.rotation.y += (d.targetRot - d.pivot.rotation.y) * 8 * dt;
+          for (const it of this.pickups) {
+            if (!it.collected) {
+              it.mesh.rotation.y += 2.2 * dt;
+              it.mesh.position.y = 1.05 + Math.sin(elapsed * 3) * 0.07;
+            }
+          }
+          for (const fl of this.flickerLights) {
+            fl.timer -= dt;
+            if (fl.timer <= 0) {
+              fl.timer = 0.08 + Math.random() * 0.35;
+              fl.light.intensity = Math.random() < 0.14 ? fl.base * 0.15 : fl.base;
+            }
+          }
+
+          if (this.state === 'MENU') {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            this.camera.position.set(0, 1.65, 22.8);
+            this.camera.rotation.order = 'YXZ';
+            this.camera.rotation.set(-0.02, 0, 0);
+
+            if (isPortrait) {
+              this.lordaineGroup.position.set(0, 0.35, 19.8);
+              this.lordaineGroup.rotation.y = Math.sin(elapsed * 0.6) * 0.1;
+            } else {
+              this.lordaineGroup.position.set(-1.38, 0.08, 19.7);
+              this.lordaineGroup.rotation.y = 0.36 + Math.sin(elapsed * 0.5) * 0.07;
+            }
+
+            this.menuRimLight.intensity = 5.4 + Math.sin(elapsed * 7) * 0.8;
+            this.menuRimLight.position.set(this.lordaineGroup.position.x - 1.1, 2.5, this.lordaineGroup.position.z - 0.7);
+            this.menuRimTarget.position.set(this.lordaineGroup.position.x, 1.5, this.lordaineGroup.position.z);
+
+            this.menuFillLight.intensity = 1.45;
+            this.menuFillLight.position.set(this.lordaineGroup.position.x + 1.0, 2.1, this.lordaineGroup.position.z + 1.4);
+
+            this.flashlight.position.set(0.5, 1.9, 22.5);
+            this.flashlight.intensity = 2.6;
+            this.flashlightTarget.position.set(this.lordaineGroup.position.x, 1.5, this.lordaineGroup.position.z);
+            this.flashlightCone.visible = false;
+            this.lordaineRig.update(dt, 'IDLE', 0);
+          } else if (this.state === 'STORY') {
+            this.storyPlayer.update(dt);
+          } else if (this.state === 'WAKING_UP') {
+            this.updateWakingUp(dt);
+          } else if (this.state === 'CAUGHT') {
+            this.camera.position.set(
+              this.player.pos.x + (Math.random() - 0.5) * 0.18,
+              1.7 + (Math.random() - 0.5) * 0.18,
+              this.player.pos.z + (Math.random() - 0.5) * 0.18
+            );
+            this.lordaineRig.update(dt, 'JUMPSCARE', 0);
+          } else if (this.state === 'PLAYING') {
+            this.updatePlaying(dt);
+          }
+
+          if (this.camScare.active) {
+            this.camScare.timer -= dt;
+            const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+            this.scareRig.position.copy(this.camera.position).addScaledVector(fwd, 0.58);
+            this.scareRig.position.x += (Math.random() - 0.5) * 0.08;
+            this.scareRig.position.y += (Math.random() - 0.5) * 0.08 - 0.03;
+            this.scareRig.quaternion.copy(this.camera.quaternion);
+            this.scareRig.rotateZ((Math.random() - 0.5) * 0.38);
+
+            if (this.camScare.timer <= 0) {
+              this.camScare.active = false;
+              this.scareRig.visible = false;
+              this.scareLight.intensity = 0;
+              document.getElementById('scare-flash').style.display = 'none';
+              this.state = 'DEAD';
+              document.getElementById('hud').style.display = 'none';
+              document.getElementById('death-reason').textContent = this.camScare.reason;
+              document.getElementById('death-screen').classList.remove('hidden');
+            }
+          }
+
+          this.renderVFX();
+          this.renderer.render(this.scene, this.camera);
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        window.mansionGame = new LordaineMansionGame();
+      });
+    })();
+  </script>
+</body>
+</html>
